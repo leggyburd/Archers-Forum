@@ -20,9 +20,55 @@ function createApp() {
     res.render('about');
   });
   // Middleware to protect authenticated routes
-  function requireAuth(req, res, next) {
+  async function requireAuth(req, res, next) {
     if (req.session && req.session.user) {
-      return next();
+      try {
+        // Check if user account is disabled
+        const User = require('./model/User');
+        const user = await User.findOne({ email: req.session.user.email });
+        
+        if (!user) {
+          // User account no longer exists
+          req.session.destroy();
+          return res.redirect('/login');
+        }
+        
+        if (user.isDisabled) {
+          // User account is disabled
+          req.session.destroy();
+          return res.status(403).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Account Disabled - Archer's Forum</title>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                       text-align: center; padding: 60px 20px; background: #f8fafc; }
+                .container { max-width: 400px; margin: 0 auto; 
+                           background: white; padding: 40px; border-radius: 12px; 
+                           box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+                h1 { color: #dc2626; margin-bottom: 16px; }
+                p { color: #64748b; margin-bottom: 24px; }
+                a { display: inline-block; background: #16a34a; color: white; 
+                    text-decoration: none; padding: 12px 24px; border-radius: 8px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1>Account Disabled</h1>
+                <p>Your account has been disabled by an administrator. Please contact support if you believe this is an error.</p>
+                <a href="/login">Return to Login</a>
+              </div>
+            </body>
+            </html>
+          `);
+        }
+        
+        return next();
+      } catch (err) {
+        console.error('Auth middleware error:', err);
+        return next();
+      }
     }
     return res.redirect('/login');
   }
@@ -31,14 +77,14 @@ function createApp() {
   app.set('view engine', 'handlebars');
   app.set('views', path.join(__dirname, 'views'));
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '50mb' })); 
+  app.use(express.urlencoded({ extended: true, limit: '50mb' })); 
 
   app.use(session({
     secret: 'archers-forum-secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
+    cookie: { maxAge: 1000 * 60 * 60 * 24 } 
   }));
 
   app.get('/', (req, res) => {
@@ -92,7 +138,29 @@ function createApp() {
     });
   });
 
-  app.get('/profile', requireAuth, (req, res) => {
+  app.get('/profile', requireAuth, async (req, res) => {
+    // Check if user is admin by looking up their role
+    const userEmail = req.session?.user?.email;
+    if (userEmail) {
+      try {
+        const User = require('./model/User');
+        const user = await User.findOne({ email: userEmail });
+        
+        if (user && user.role === 'admin') {
+          // Redirect admins to user management page
+          return res.render('user-management', {
+            pageTitle: 'User Management - Archers Forum',
+            pageHead: INTER_FONT_HEAD,
+            styles: ['/css/main_page.css', '/css/admin.css'],
+            scripts: ['/js/storage.js', '/js/mainpage/utils.js', '/js/user-management.js'],
+          });
+        }
+      } catch (err) {
+        console.error('Error checking user role:', err);
+      }
+    }
+    
+    // Regular users get the profile page
     res.render('profile', {
       pageTitle: 'My Profile - Archers Forum',
       pageHead: INTER_FONT_HEAD,
