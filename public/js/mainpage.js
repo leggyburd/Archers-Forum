@@ -101,6 +101,10 @@
   const closeComposerBtn = document.getElementById("closeComposerBtn");
   const cancelComposerBtn = document.getElementById("cancelComposerBtn");
   const createPostForm = document.getElementById("createPostForm");
+  const composerTitleEl = document.getElementById("composerTitle");
+  const composerSubmitBtn = createPostForm
+    ? createPostForm.querySelector('button[type="submit"]')
+    : null;
 
   const postTitle = document.getElementById("postTitle");
   const postCategory = document.getElementById("postCategory");
@@ -108,6 +112,7 @@
   const postBody = document.getElementById("postBody");
   const postMedia = document.getElementById("postMedia");
   const mediaPreviewList = document.getElementById("mediaPreviewList");
+  const composerMediaHintEl = document.querySelector(".help-text-inline");
   const titleCount = document.getElementById("titleCount");
 
   const allTagsChips = document.getElementById("allTagsChips");
@@ -208,6 +213,78 @@
   let activePostId = null;
   let shouldAnimateFeed = true;
   let repliesCollapsedByComment = {};
+  let composerMediaItems = [];
+  let editingPostId = null;
+  let composerDirty = false;
+
+  const DEFAULT_MEDIA_HINT = "(images/videos, up to 10 files, max 100 MB each)";
+  const EDIT_MEDIA_HINT = "(images/videos, up to 10 files, max 100 MB each. In edit mode, selecting one new image replaces the current picture by default; additional files append.)";
+
+  function setComposerMode(isEditing) {
+    if (composerTitleEl) {
+      composerTitleEl.textContent = isEditing ? "Edit Post" : "Create Post";
+    }
+    if (composerSubmitBtn) {
+      composerSubmitBtn.textContent = isEditing ? "Save Changes" : "Post";
+    }
+    if (composerMediaHintEl) {
+      composerMediaHintEl.textContent = isEditing ? EDIT_MEDIA_HINT : DEFAULT_MEDIA_HINT;
+    }
+  }
+
+  function resetComposerMode() {
+    editingPostId = null;
+    setComposerMode(false);
+    composerDirty = false;
+  }
+
+  function markComposerDirty() {
+    composerDirty = true;
+  }
+
+  function markComposerClean() {
+    composerDirty = false;
+  }
+
+  function requestCloseComposer() {
+    if (!composerDirty) {
+      closeComposer(true);
+      return;
+    }
+
+    showConfirmModal(
+      {
+        title: "Discard changes?",
+        message: "You have unsaved post changes. Closing now will discard them.",
+        confirmText: "Discard",
+        cancelText: "Keep editing",
+        danger: true,
+      },
+      () => closeComposer(true),
+    );
+  }
+
+  function isComposerItemExisting(item) {
+    return item && item.kind === "existing";
+  }
+
+  function isComposerItemFile(item) {
+    return item && item.kind === "file";
+  }
+
+  function getComposerKeptMediaUrls() {
+    return composerMediaItems
+      .filter(isComposerItemExisting)
+      .map((item) => item.url)
+      .filter(Boolean);
+  }
+
+  function getComposerFiles() {
+    return composerMediaItems
+      .filter(isComposerItemFile)
+      .map((item) => item.file)
+      .filter(Boolean);
+  }
 
   function isBookmarked(postId) {
     return bookmarks.has(postId);
@@ -245,6 +322,7 @@
     vote,
     voteComment,
     handleDelete,
+    handleEditPost: startEditPost,
     showReportModal,
     setActiveTag,
     isOwner,
@@ -305,7 +383,15 @@
   function openComposer(prefillTitle) {
     if (!createPostForm) return;
 
+    resetComposerMode();
+    if (postMedia) {
+      postMedia.disabled = false;
+      postMedia.title = "";
+    }
     createPostForm.reset();
+    composerMediaItems = [];
+    renderComposerMediaPreviews();
+    markComposerClean();
     if (titleCount) titleCount.textContent = "0";
 
     if (prefillTitle && postTitle && titleCount) {
@@ -317,10 +403,59 @@
     if (postTitle) postTitle.focus();
   }
 
-  function closeComposer() {
+  function closeComposer(force = false) {
+    if (!force && composerDirty) {
+      requestCloseComposer();
+      return;
+    }
+
+    resetComposerMode();
     if (composerOverlay) closeOverlay(composerOverlay);
+    composerMediaItems = [];
+    if (postMedia) {
+      postMedia.value = "";
+      postMedia.disabled = false;
+      postMedia.title = "";
+    }
+    renderComposerMediaPreviews();
+  }
+
+  function startEditPost(postId) {
+    const post = getPostById(postId);
+    if (!post) return;
+    if (!isOwner(post) && userRole !== "admin") return;
+
+    if (detailOverlay && detailOverlay.classList.contains("open")) {
+      closeDetail();
+    }
+
+    editingPostId = post.id;
+    setComposerMode(true);
+
+    if (composerOverlay) openOverlay(composerOverlay);
+
+    if (postTitle) postTitle.value = post.title || "";
+    if (postCategory) postCategory.value = post.category || "General Questions";
+    if (postTags) postTags.value = (post.tags || []).join(", ");
+    if (postBody) postBody.value = post.body || "";
+    if (titleCount) titleCount.textContent = String((post.title || "").length);
+
+    composerMediaItems = (post.mediaUrls || []).map((url) => ({
+      kind: "existing",
+      id: makeId("media"),
+      url,
+    }));
     if (postMedia) postMedia.value = "";
-    if (mediaPreviewList) mediaPreviewList.innerHTML = "";
+    renderComposerMediaPreviews();
+
+    if (postMedia) {
+      postMedia.disabled = false;
+      postMedia.title = "";
+    }
+
+    markComposerClean();
+
+    if (postTitle) postTitle.focus();
   }
 
   function openDetail(postId) {
@@ -416,11 +551,6 @@
     posts[idx].score = (posts[idx].score || 0) + delta;
 
     const myName = localStorage.getItem("af_user");
-    const post = posts[idx];
-    
-    if (direction === 'up' && current !== 'up') {
-      window.AF_MAIN_UTILS.addNotification('like', myName, post.authorEmail, post.title, postId);
-    }
     setUserVote(postId, next);
     saveJSON(VOTES_KEY, votesByUser);
 
@@ -431,7 +561,7 @@
     fetch(`/api/posts/${postId}/vote`, {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ delta }),
+      body:    JSON.stringify({ delta, voterName: myName, voterEmail: email }),
     }).catch((err) => console.error("Vote sync failed:", err));
   }
 
@@ -516,8 +646,42 @@
     });
   }
 
+  function applyMediaFallback(mediaEl) {
+    if (!mediaEl || mediaEl.dataset.fallbackApplied === "1") return;
+
+    const slide = mediaEl.closest(".rf-media-slide");
+    if (!slide) return;
+
+    slide.innerHTML =
+      '<div class="rf-media-unavailable" role="status" aria-live="polite">' +
+      '<strong>Media unavailable</strong>' +
+      '<span>This file could not be loaded on this device.</span>' +
+      "</div>";
+
+    mediaEl.dataset.fallbackApplied = "1";
+  }
+
+  function bindMediaLoadFallbacks(rootEl) {
+    const root = rootEl || document;
+    const mediaElements = root.querySelectorAll(".rf-media-slide img, .rf-media-slide video");
+
+    mediaElements.forEach((mediaEl) => {
+      if (mediaEl.dataset.errorBound === "1") return;
+
+      if (mediaEl.tagName === "VIDEO") {
+        mediaEl.addEventListener("error", () => applyMediaFallback(mediaEl), { once: true });
+      } else {
+        mediaEl.addEventListener("error", () => applyMediaFallback(mediaEl), { once: true });
+      }
+
+      mediaEl.dataset.errorBound = "1";
+    });
+  }
+
   function initMediaCarousels(rootEl) {
     const root = rootEl || document;
+    bindMediaLoadFallbacks(root);
+
     root.querySelectorAll("[data-carousel]").forEach((carousel) => {
       const track = carousel.querySelector(".rf-media-track");
       if (!track) return;
@@ -684,21 +848,127 @@ function handleDelete(postId) {
     if (detailContent) initMediaCarousels(detailContent);
   }
 
+  async function reloadPostsFromServer() {
+    const res = await fetch("/api/posts");
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to refresh posts.");
+    }
+
+    posts = data;
+    saveJSON(POSTS_KEY, posts);
+    render();
+
+    if (activePostId) {
+      renderDetail({ animateComments: false });
+    }
+  }
+
+  function syncComposerMediaInput() {
+    if (!postMedia || typeof DataTransfer === "undefined") return;
+    const dt = new DataTransfer();
+    getComposerFiles().forEach((file) => dt.items.add(file));
+    postMedia.files = dt.files;
+  }
+
+  function renderComposerMediaPreviews() {
+    if (!mediaPreviewList) return;
+
+    mediaPreviewList.innerHTML = "";
+    if (!composerMediaItems.length) return;
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "media-preview-toolbar";
+    toolbar.innerHTML =
+      `<span class="media-preview-count">${composerMediaItems.length} file${composerMediaItems.length === 1 ? "" : "s"} selected</span>` +
+      '<button type="button" class="media-preview-clear-btn" data-clear-media>Clear all</button>';
+    mediaPreviewList.appendChild(toolbar);
+
+    composerMediaItems.forEach((mediaItem, index) => {
+      const itemEl = document.createElement("div");
+      itemEl.className = "media-preview-item";
+
+      const isExisting = isComposerItemExisting(mediaItem);
+      const previewUrl = isExisting ? mediaItem.url : URL.createObjectURL(mediaItem.file);
+      const label = isExisting ? "Existing media" : `Selected media ${index + 1}`;
+
+      const mediaType = isExisting
+        ? (String(mediaItem.url || "").match(/\.(mp4|webm|mov)$/i) ? "video" : "image")
+        : (mediaItem.file.type.startsWith("video/") ? "video" : "image");
+
+      const mediaHtml = mediaType === "video"
+        ? `<video src="${previewUrl}" class="media-thumb" muted preload="metadata"></video>`
+        : `<img src="${previewUrl}" class="media-thumb" alt="${label}" />`;
+
+      itemEl.innerHTML =
+        mediaHtml +
+        `<button type="button" class="media-preview-remove" data-remove-media-index="${index}" aria-label="Remove media">×</button>`;
+
+      if (isExisting) {
+        const badge = document.createElement("span");
+        badge.className = "media-preview-badge";
+        badge.textContent = "Existing";
+        itemEl.appendChild(badge);
+      }
+
+      const mediaEl = itemEl.querySelector("img, video");
+      if (mediaEl && !isExisting) {
+        mediaEl.addEventListener("load", () => URL.revokeObjectURL(previewUrl), { once: true });
+        mediaEl.addEventListener("loadeddata", () => URL.revokeObjectURL(previewUrl), { once: true });
+        mediaEl.addEventListener("error", () => URL.revokeObjectURL(previewUrl), { once: true });
+      }
+
+      mediaPreviewList.appendChild(itemEl);
+    });
+  }
+
   // Wire up file input preview
   if (postMedia && mediaPreviewList) {
     postMedia.addEventListener("change", () => {
-      mediaPreviewList.innerHTML = "";
-      Array.from(postMedia.files).forEach((file) => {
-        const url = URL.createObjectURL(file);
-        const item = document.createElement("div");
-        item.className = "media-preview-item";
-        if (file.type.startsWith("video/")) {
-          item.innerHTML = `<video src="${url}" class="media-thumb" muted preload="metadata"></video>`;
-        } else {
-          item.innerHTML = `<img src="${url}" class="media-thumb" alt="" />`;
+      const selectedFiles = Array.from(postMedia.files || []);
+      if (selectedFiles.length) {
+        const onlyExistingMedia = editingPostId && composerMediaItems.length > 0 && composerMediaItems.every(isComposerItemExisting);
+
+        const newFileItems = selectedFiles.map((file) => ({
+          kind: "file",
+          id: makeId("media"),
+          file,
+        }));
+
+        const nextItems = onlyExistingMedia && selectedFiles.length === 1
+          ? newFileItems
+          : [...composerMediaItems, ...newFileItems];
+
+        composerMediaItems = nextItems.slice(0, 10);
+        markComposerDirty();
+      }
+      syncComposerMediaInput();
+      renderComposerMediaPreviews();
+      // Reset input so selecting the same file again still triggers change.
+      postMedia.value = "";
+    });
+
+    mediaPreviewList.addEventListener("click", (e) => {
+      const removeBtn = e.target.closest("[data-remove-media-index]");
+      if (removeBtn) {
+        const index = Number(removeBtn.getAttribute("data-remove-media-index"));
+        if (Number.isInteger(index) && index >= 0 && index < composerMediaItems.length) {
+          composerMediaItems.splice(index, 1);
+          syncComposerMediaInput();
+          renderComposerMediaPreviews();
+          markComposerDirty();
         }
-        mediaPreviewList.appendChild(item);
-      });
+        return;
+      }
+
+      const clearBtn = e.target.closest("[data-clear-media]");
+      if (clearBtn) {
+        composerMediaItems = [];
+        syncComposerMediaInput();
+        renderComposerMediaPreviews();
+        markComposerDirty();
+      }
     });
   }
 
@@ -710,31 +980,82 @@ function handleDelete(postId) {
     if (!title || !body) return;
 
     try {
-      const fd = new FormData();
-      fd.append("title",       title);
-      fd.append("category",    category);
-      fd.append("body",        body);
-      fd.append("authorName",  name);
-      fd.append("authorEmail", email);
-      tags.forEach((t) => fd.append("tags", t));
-      if (postMedia && postMedia.files) {
-        Array.from(postMedia.files).forEach((f) => fd.append("media", f));
+      const wasEditingId = editingPostId;
+
+      if (wasEditingId) {
+        const fd = new FormData();
+        fd.append("title", title);
+        fd.append("category", category);
+        fd.append("body", body);
+        fd.append("email", email);
+        fd.append("role", userRole);
+        tags.forEach((t) => fd.append("tags", t));
+        fd.append("keptMediaUrls", JSON.stringify(getComposerKeptMediaUrls()));
+        getComposerFiles().forEach((file) => fd.append("media", file));
+
+        const res = await fetch(`/api/posts/${wasEditingId}`, {
+          method: "PUT",
+          body: fd,
+        });
+        const updatedPost = await res.json();
+
+        if (!res.ok) {
+          showToast(updatedPost.error || "Failed to update post.", "error");
+          return;
+        }
+
+        try {
+          await reloadPostsFromServer();
+        } catch (refreshErr) {
+          console.error("Failed to refresh posts after edit:", refreshErr);
+          const idx = posts.findIndex((p) => p.id === wasEditingId);
+          if (idx >= 0) {
+            const existing = posts[idx];
+            const nextPosts = posts.slice();
+            nextPosts[idx] = {
+              ...existing,
+              ...updatedPost,
+              authorAvatar: existing.authorAvatar,
+            };
+            posts = nextPosts;
+            saveJSON(POSTS_KEY, posts);
+            render();
+          }
+        }
+      } else {
+        const fd = new FormData();
+        fd.append("title", title);
+        fd.append("category", category);
+        fd.append("body", body);
+        fd.append("authorName", name);
+        fd.append("authorEmail", email);
+        tags.forEach((t) => fd.append("tags", t));
+        getComposerFiles().forEach((f) => fd.append("media", f));
+
+        const res = await fetch("/api/posts", { method: "POST", body: fd });
+        const post = await res.json();
+
+        if (!res.ok) {
+          showToast(post.error || "Failed to create post.", "error");
+          return;
+        }
+
+        posts.unshift(post);
+        saveJSON(POSTS_KEY, posts);
       }
 
-      const res  = await fetch("/api/posts", { method: "POST", body: fd });
-      const post = await res.json();
-
-      if (res.ok) {
-        posts.unshift(post);
-        shouldAnimateFeed = true;
-        closeComposer();
-        render();
-        if (window.refreshProfileData && typeof window.refreshProfileData === "function") {
-          window.refreshProfileData();
-        }
+      shouldAnimateFeed = true;
+      markComposerClean();
+      closeComposer(true);
+      render();
+      if (window.refreshProfileData && typeof window.refreshProfileData === "function") {
+        window.refreshProfileData();
+      }
+      if (activePostId && wasEditingId && activePostId === wasEditingId) {
+        renderDetail({ animateComments: false });
       }
     } catch (err) {
-      console.error("Failed to create post:", err);
+      console.error("Failed to create/update post:", err);
     }
   }
 
@@ -775,6 +1096,7 @@ function handleDelete(postId) {
       setActiveCategory,
       openComposer,
       closeComposer,
+      requestCloseComposer,
       createPostFromForm,
       closeDetail,
       render,
@@ -788,6 +1110,7 @@ function handleDelete(postId) {
       voteComment,
       isRepliesCollapsed,
       setRepliesCollapsed,
+      startEditPost,
       handleDelete,
       showReportModal,
       openDetail,
@@ -820,6 +1143,7 @@ function handleDelete(postId) {
     helpers: {
       refreshProfileData: window.refreshProfileData,
     },
+    markComposerDirty,
   });
 
   // Load posts from the API, then render the page.
@@ -829,6 +1153,8 @@ function handleDelete(postId) {
       const data = await res.json();
       if (res.ok) {
         posts = data;
+        // Save to localStorage so polling updates can merge properly
+        saveJSON(POSTS_KEY, posts);
         shouldAnimateFeed = true;
       }
     } catch (err) {
@@ -867,9 +1193,8 @@ function handleDelete(postId) {
 
   if (bell && dropdown) {
     bell.addEventListener('click', (e) => {
-      e.stopPropagation(); // Stop click from bubbling to document
+      e.stopPropagation();
       dropdown.classList.toggle('show');
-      // Update badge/list immediately
       window.AF_MAIN_UTILS.renderNotifications();
     });
 
@@ -881,5 +1206,35 @@ function handleDelete(postId) {
       e.stopPropagation();
     });
   }
+
+  // Expose refresh functions globally for real-time updates
+  window.refreshFeed = async function() {
+    try {
+      // Reload posts from localStorage (which is updated by polling)
+      const latestPosts = loadJSON(POSTS_KEY) || [];
+      if (latestPosts.length > 0) {
+        posts = latestPosts;
+        render();
+        console.log('Feed refreshed with', latestPosts.length, 'posts');
+      }
+    } catch (err) {
+      console.error('Failed to refresh feed:', err);
+    }
+  };
+
+  window.loadAllPosts = async function() {
+    try {
+      const res = await fetch("/api/posts");
+      const data = await res.json();
+      if (res.ok) {
+        posts = data;
+        saveJSON(POSTS_KEY, posts);
+        render();
+      }
+    } catch (err) {
+      console.error("Failed to load posts:", err);
+    }
+  };
+
   window.AF_MAIN_UTILS.renderNotifications();
 })();

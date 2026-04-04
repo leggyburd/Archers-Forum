@@ -548,10 +548,28 @@
     const file = event.target.files && event.target.files[0];
     if (!file) return;
 
+    // Only allow PNG and JPEG images
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (PNG or JPEG only).');
+      event.target.value = ''; 
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image is too large. Please select an image smaller than 10MB.');
+      event.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function (e) {
       setSrc("previewImg", e.target.result);
       updateEditMediaUI();
+    };
+    reader.onerror = function() {
+      alert('Error reading the image file. Please try again.');
+      event.target.value = ''; // Clear the input
     };
     reader.readAsDataURL(file);
   };
@@ -560,10 +578,27 @@
     const file = event.target.files && event.target.files[0];
     if (!file) return;
 
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (PNG or JPEG only).');
+      event.target.value = ''; 
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image is too large. Please select an image smaller than 10MB.');
+      event.target.value = ''; 
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function (e) {
       setSrc("editCoverPreview", e.target.result);
       updateEditMediaUI();
+    };
+    reader.onerror = function() {
+      alert('Error reading the image file. Please try again.');
+      event.target.value = ''; // Clear the input
     };
     reader.readAsDataURL(file);
   };
@@ -731,20 +766,20 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    if (window.AF_MAIN_UTILS) window.AF_MAIN_UTILS.renderNotifications();
-
-    const bell = document.getElementById('notifBell');
-    const dropdown = document.getElementById('notifDropdown');
-
-    if (bell && dropdown) {
-      bell.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('show');
-        window.AF_MAIN_UTILS.renderNotifications();
-      });
-
-      document.addEventListener('click', () => dropdown.classList.remove('show'));
-      dropdown.addEventListener('click', (e) => e.stopPropagation());
+    if (window.AF_MAIN_UTILS && window.AF_MAIN_UTILS.renderNotifications) {
+      window.AF_MAIN_UTILS.renderNotifications();
+      // Start real-time notification, post, and status polling
+      if (window.AF_MAIN_UTILS.startNotificationPolling) {
+        window.AF_MAIN_UTILS.startNotificationPolling();
+      }
+      if (window.AF_MAIN_UTILS.startPostPolling) {
+        window.AF_MAIN_UTILS.startPostPolling();
+      }
+      if (window.AF_MAIN_UTILS.startStatusPolling) {
+        window.AF_MAIN_UTILS.startStatusPolling();
+      }
+    } else {
+      initializeNotifications();
     }
   });
 
@@ -843,50 +878,226 @@
 
 
   // --- Notification UI/Fetch Logic ---
-  async function fetchNotifications() {
-    try {
-      const res = await fetch(`/api/notifications/${currentUserId()}`);
-      const data = await res.json();
-      const notifList = document.getElementById('notifList');
-      const notifBadge = document.getElementById('notifBadge');
-      if (!notifList) return;
-      notifList.innerHTML = '';
-      if (data.notifications && data.notifications.length > 0) {
-        let unreadCount = 0;
-        data.notifications.forEach(n => {
-          const notifItem = document.createElement('div');
-          notifItem.className = 'notif-item' + (n.isRead ? '' : ' unread');
-          notifItem.innerHTML = `<b>${n.fromUser?.name || 'Someone'}</b>: ${n.message} <span class='notif-date'>${new Date(n.createdAt).toLocaleString()}</span>`;
-          notifItem.onclick = async () => {
-            if (!n.isRead) {
-              await fetch(`/api/notifications/read/${n._id}`, { method: 'POST' });
-              notifItem.classList.remove('unread');
-              notifBadge.hidden = true;
-            }
-          };
-          notifList.appendChild(notifItem);
-          if (!n.isRead) unreadCount++;
-        });
-        notifBadge.textContent = unreadCount;
-        notifBadge.hidden = unreadCount === 0;
-      } else {
-        notifList.innerHTML = '<p class="empty-notif">No new notifications</p>';
-        notifBadge.hidden = true;
+  function areNotificationsEquivalent(a, b) {
+    if (!a || !b) return false;
+
+    const aMessage = String(a.message || "").trim();
+    const bMessage = String(b.message || "").trim();
+    const aType = String(a.type || "").trim();
+    const bType = String(b.type || "").trim();
+    const aPostId = String(a.postId || "").trim();
+    const bPostId = String(b.postId || "").trim();
+
+    if (aMessage !== bMessage || aType !== bType || aPostId !== bPostId) {
+      return false;
+    }
+
+    const aTime = Number(a.time || 0);
+    const bTime = Number(b.time || 0);
+    return Math.abs(aTime - bTime) <= 15000;
+  }
+
+  function dedupeNotifications(notifs) {
+    const unique = [];
+
+    notifs.forEach((incoming) => {
+      const index = unique.findIndex((item) => {
+        if (item.id && incoming.id && String(item.id) === String(incoming.id)) return true;
+        return areNotificationsEquivalent(item, incoming);
+      });
+
+      if (index === -1) {
+        unique.push(incoming);
+        return;
       }
-    } catch (err) {
-      console.error('Failed to fetch notifications:', err);
+
+      const existing = unique[index];
+      unique[index] = {
+        ...existing,
+        ...incoming,
+        read: Boolean(existing.read || incoming.read),
+        time: Math.max(Number(existing.time || 0), Number(incoming.time || 0)),
+        id: existing.id || incoming.id,
+      };
+    });
+
+    return unique.sort((a, b) => Number(b.time || 0) - Number(a.time || 0));
+  }
+
+  function renderNotifications() {
+    const notifList = document.getElementById('notifList');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifCount = document.getElementById('notifHeaderCount');
+    
+    if (!notifList) return;
+
+    const key = `af_notifs_${currentUserEmail}`;
+    const rawNotifs = JSON.parse(localStorage.getItem(key) || "[]");
+    const notifs = dedupeNotifications(rawNotifs).slice(0, 20);
+    localStorage.setItem(key, JSON.stringify(notifs));
+
+    const unread = notifs.filter(n => !n.read).length;
+
+    if (notifBadge) {
+      notifBadge.textContent = unread;
+      notifBadge.hidden = unread === 0;
+    }
+
+    if (notifCount) {
+      notifCount.hidden = notifs.length === 0;
+      if (notifs.length > 0) {
+        notifCount.textContent = unread > 0 ? `${unread} unread` : 'All caught up';
+      }
+    }
+
+    if (notifs.length === 0) {
+      notifList.innerHTML = '<p class="empty-notif" style="padding:25px; text-align:center; color:#888;">No notifications yet</p>';
+      return;
+    }
+
+    notifList.innerHTML = notifs.map(n => `
+      <div class="notif-item ${n.read ? '' : 'unread'}" onclick="handleNotifClick('${n.id}', '${n.postId}')" 
+           style="padding: 12px 15px; border-bottom: 1px solid #f5f5f5; cursor: pointer;">
+        <div style="font-size: 13px;">${n.message}</div>
+        <div style="font-size: 11px; color: #888; margin-top: 4px;">${formatDate(n.time)}</div>
+      </div>
+    `).join('');
+  }
+
+  function handleNotifClick(notifId, postId) {
+    const key = `af_notifs_${currentUserEmail}`;
+    let notifs = JSON.parse(localStorage.getItem(key) || "[]");
+    notifs = notifs.map(n => n.id == notifId ? { ...n, read: true } : n);
+    localStorage.setItem(key, JSON.stringify(notifs));
+
+    fetch(`/api/users/notifications/${notifId}/read`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentUserEmail })
+    }).catch((err) => {
+      console.error('Failed to mark server notification as read:', err);
+    });
+
+    if (postId && postId !== "undefined" && postId !== "null") {
+      localStorage.setItem("af_open_post", postId);
+      navigateWithFade("/mainpage");
+    } else {
+      renderNotifications();
     }
   }
 
-  function currentUserId() {
-    return localStorage.getItem('af_user_id');
+  // Initialize notification system when page loads
+  function initializeNotifications() {
+    const bell = document.getElementById('notifBell');
+    const dropdown = document.getElementById('notifDropdown');
+    const clearBtn = document.getElementById('clearNotificationsBtn');
+    const markReadBtn = document.getElementById('markNotificationsReadBtn');
+
+    if (bell && dropdown) {
+      bell.removeEventListener('click', toggleNotifications);
+      bell.addEventListener('click', toggleNotifications);
+      
+      document.addEventListener('click', (e) => {
+        if (!bell.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.classList.remove('show');
+        }
+      });
+      
+      dropdown.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    if (clearBtn && clearBtn.dataset.bound !== '1') {
+      clearBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        clearBtn.disabled = true;
+        clearBtn.textContent = 'Clearing...';
+
+        try {
+          await fetch(`/api/users/notifications?email=${encodeURIComponent(currentUserEmail)}`, {
+            method: 'DELETE',
+          });
+        } catch (err) {
+          console.error('Failed to clear server notifications:', err);
+        }
+
+        localStorage.setItem(`af_notifs_${currentUserEmail}`, JSON.stringify([]));
+        renderNotifications();
+
+        clearBtn.disabled = false;
+        clearBtn.textContent = 'Clear';
+      });
+
+      clearBtn.dataset.bound = '1';
+    }
+
+    if (markReadBtn && markReadBtn.dataset.bound !== '1') {
+      markReadBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        markReadBtn.disabled = true;
+        markReadBtn.textContent = 'Marking...';
+
+        let serverUpdated = false;
+        try {
+          const response = await fetch(`/api/users/notifications/read-all?email=${encodeURIComponent(currentUserEmail)}`, {
+            method: 'PUT',
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          serverUpdated = true;
+        } catch (err) {
+          console.error('Failed to mark all server notifications as read:', err);
+        }
+
+        const key = `af_notifs_${currentUserEmail}`;
+        const notifs = JSON.parse(localStorage.getItem(key) || "[]").map((n) => ({ ...n, read: true }));
+        localStorage.setItem(key, JSON.stringify(notifs));
+
+        const notifBadge = document.getElementById('notifBadge');
+        if (notifBadge) {
+          notifBadge.textContent = '0';
+          notifBadge.hidden = true;
+        }
+
+        if (!serverUpdated) {
+          console.warn('Notifications were marked read locally, but server update failed.');
+        }
+
+        renderNotifications();
+
+        markReadBtn.disabled = false;
+        markReadBtn.textContent = 'Mark read';
+      });
+
+      markReadBtn.dataset.bound = '1';
+    }
+
+    renderNotifications();
   }
 
-  document.getElementById('notifBell').addEventListener('click', function() {
+  function toggleNotifications(e) {
+    e.stopPropagation();
     const dropdown = document.getElementById('notifDropdown');
-    dropdown.classList.toggle('show');
-    if (dropdown.classList.contains('show')) fetchNotifications();
-  });
+    if (dropdown) {
+      dropdown.classList.toggle('show');
+      if (dropdown.classList.contains('show')) {
+        renderNotifications();
+      }
+    }
+  }
+
+  window.handleNotifClick = handleNotifClick;
+  window.renderNotifications = renderNotifications;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeNotifications);
+  } else {
+    initializeNotifications();
+  }
   // --- End Notification UI/Fetch Logic ---
 })();
 

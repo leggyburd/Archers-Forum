@@ -74,12 +74,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Submit the form to either register or log in.
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (msg) msg.textContent = "";
+    
+    // Clear any previous error messages
+    const emailError = document.getElementById("emailError");
+    if (emailError) emailError.textContent = "";
 
-    // Register flow.
     if (mode === "register") {
       const nameEl  = form.querySelector('input[name="name"]');
       const emailEl = form.querySelector('input[name="email"]');
@@ -90,6 +92,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!name || !email || !password) {
         if (msg) msg.textContent = "Please fill in all fields.";
+        return;
+      }
+
+      // Validate email format - must contain @ symbol
+      if (!email.includes("@")) {
+        if (emailError) emailError.textContent = "Please enter a valid email address with @ symbol.";
         return;
       }
 
