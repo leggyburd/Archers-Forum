@@ -1,0 +1,242 @@
+<header class="main-header">
+  <div class="header-left">
+    <button class="btn-back" type="button" onclick="goBackToMain()">
+      ← Back to Forum
+    </button>
+  </div>
+
+  <div class="header-center"></div>
+
+  <div class="header-right" id="headerActions">
+    <div class="notif-wrapper">
+      <button class="btn-notif" id="notifBell" title="Notifications">
+        <img src="/assets/notification.png" alt="Bell" style="width: 24px; filter: brightness(0) invert(1);">
+      <span class="notif-badge" id="notifBadge" hidden>0</span>
+      </button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-header">Notifications</div>
+        <div class="notif-body" id="notifList">
+          <p class="empty-notif">No new notifications</p>
+        </div>
+      </div>
+    </div>
+    <a class="btn-admin" id="headerReportsBtn" href="/admin" style="display: none;" hidden>Reports</a>
+    <button class="btn-bookmarks-link" type="button" onclick="goToBookmarks()">
+      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="14" height="14" style="vertical-align:-1px"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      My Bookmarks
+    </button>
+    <button class="btn-logout" type="button" onclick="handleLogout()">
+      Logout
+    </button>
+  </div>
+</header>
+
+<main class="profile-page">
+  <section class="profile-cover">
+    <img
+      src="/assets/default_banner.png"
+      alt="Cover Photo"
+      class="cover-image"
+      id="coverImage"
+    />
+    <div class="cover-gradient"></div>
+    <div class="cover-shadow"></div>
+  </section>
+
+  <div class="profile-container">
+    <section class="profile-header">
+      <div class="profile-avatar-wrap">
+        <img
+          src="/assets/default_pfp.png"
+          alt="Profile Picture"
+          class="profile-avatar-img"
+          id="profileAvatar"
+        />
+      </div>
+
+      <div class="profile-header-row">
+        <div class="profile-text">
+          <div class="profile-name-stats">
+            <h1 class="profile-display-name">User</h1>
+            <div class="profile-stats-inline">
+              <div class="profile-stat-inline" onclick="showFollowersModal()" style="cursor: pointer;">
+                <span class="stat-number" id="followersCount">0</span>
+                <span class="stat-label">Followers</span>
+              </div>
+              <div class="profile-stat-inline" onclick="showFollowingModal()" style="cursor: pointer;">
+                <span class="stat-number" id="followingCount">0</span>
+                <span class="stat-label">Following</span>
+              </div>
+              <button class="btn-follow" id="followBtn" type="button" onclick="toggleFollow()" style="display: none;">
+                Follow
+              </button>
+            </div>
+          </div>
+          
+          <p id="profileEmail" class="profile-email">user@email.com</p>
+          <p class="profile-role">Archer Community Member</p>
+        </div>
+
+        <div class="profile-actions">
+          <button class="btn-edit-profile" type="button" onclick="openEditModal()">
+            Edit Profile
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="profile-activity">
+      <div class="profile-tabs">
+        <button
+          class="profile-tab profile-tab-active"
+          type="button"
+          onclick="switchTab(this, 'threads')"
+        >
+          My Threads (0)
+        </button>
+
+        <button
+          class="profile-tab"
+          type="button"
+          onclick="switchTab(this, 'replies')"
+        >
+          My Replies (0)
+        </button>
+      </div>
+
+      <div class="profile-content-area">
+        <div class="content-section" id="threadsContent">
+          <div class="empty-state">
+            <p>No threads created yet.</p>
+          </div>
+        </div>
+
+        <div class="content-section" id="repliesContent" style="display: none;">
+          <div class="empty-state">
+            <p>No replies posted yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="edit-profile-modal" id="editProfileModal" style="display: none;">
+    <div class="edit-profile-overlay" onclick="closeEditModal()"></div>
+
+    <div class="edit-profile-form">
+      <div class="edit-header">
+        <button class="icon-btn" type="button" onclick="closeEditModal()" aria-label="Close">
+          ✕
+        </button>
+        <h2 class="edit-title">Edit profile</h2>
+        <button class="save-btn" type="submit" form="profileEditForm">Save</button>
+      </div>
+
+      <form id="profileEditForm" onsubmit="saveProfile(event)">
+        <div class="media">
+          <div class="banner">
+            <img id="editCoverPreview" class="banner-img" src="/assets/default_banner.png" alt="Banner preview">
+
+            <div class="banner-controls" id="bannerControls">
+              <button
+                class="icon-btn dark add-only"
+                id="bannerAddBtn"
+                type="button"
+                onclick="triggerCoverPicker()"
+              >
+                <img src="/assets/add_change_photo.png" alt="Add" class="icon-img">Add Banner
+              </button>
+
+              <div class="controls-has" id="bannerHasControls">
+                <button class="icon-btn dark" type="button" onclick="triggerCoverPicker()" aria-label="Change banner">
+                  <img src="/assets/add_change_photo.png" alt="Add" class="icon-img">
+                </button>
+                <button class="icon-btn dark" type="button" onclick="removeCoverFromEdit()" aria-label="Remove banner">
+                  <img src="/assets/delete.png" alt="Delete" class="icon-img">
+                </button>
+              </div>
+            </div>
+
+            <input
+              type="file"
+              id="coverPicture"
+              name="coverPicture"
+              accept="image/*"
+              onchange="previewCoverInEdit(event)"
+              style="display:none;"
+            />
+          </div>
+
+          <div class="avatar-wrap">
+            <img id="previewImg" class="avatar-img" src="/assets/default_pfp.png" alt="Avatar preview">
+
+            <div class="avatar-controls" id="avatarControls">
+              <button
+                class="icon-btn dark add-only"
+                id="avatarAddBtn"
+                type="button"
+                onclick="triggerAvatarPicker()"
+              >
+                <img src="/assets/add_change_photo.png" alt="Add" class="icon-img">
+              </button>
+
+              <div class="controls-has" id="avatarHasControls">
+                <button class="icon-btn dark" type="button" onclick="triggerAvatarPicker()" aria-label="Change profile photo">
+                  <img src="/assets/add_change_photo.png" alt="Add" class="icon-img">
+                </button>
+                </button>
+              </div>
+            </div>
+
+            <input
+              type="file"
+              id="profilePicture"
+              name="profilePicture"
+              accept="image/*"
+              onchange="previewImage(event)"
+              style="display:none;"
+            />
+          </div>
+        </div>
+
+        <div class="fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="firstName">First Name</label>
+              <input type="text" id="firstName" name="firstName" placeholder="Enter your first name" required />
+            </div>
+            <div class="form-group">
+              <label for="lastName">Last Name</label>
+              <input type="text" id="lastName" name="lastName" placeholder="Enter your last name" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="userRole">Role</label>
+            <input type="text" id="userRole" name="userRole" value="Archer Community Member" readonly />
+          </div>
+
+          <div class="form-group">
+            <label for="userEmail">Email</label>
+            <input type="email" id="userEmail" name="userEmail" readonly />
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<!-- Followers/Following Modal -->
+<div class="follow-modal-overlay" id="followModalOverlay" onclick="closeFollowModal()">
+  <div class="follow-modal" onclick="event.stopPropagation()">
+    <div class="follow-modal-header">
+      <h3 id="followModalTitle">Followers</h3>
+      <button class="follow-modal-close" onclick="closeFollowModal()">×</button>
+    </div>
+    <div class="follow-modal-content">
+      <div class="follow-list" id="followList">
+        <!-- User list will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+</div>

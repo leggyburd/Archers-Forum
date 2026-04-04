@@ -1,0 +1,55 @@
+<main class="wrap">
+  <section class="card">
+    <aside class="left">
+      <video id="bgVideo" class="bgvid" src="/assets/video.mp4" autoplay muted loop playsinline preload="auto">
+      </video>
+      <div class="left-overlay"></div>
+
+      <div class="auth-toggle" data-active="{{mode}}">
+        <div class="toggle-indicator"></div>
+        <a class="toggle-item" data-target="login" href="/login">Login</a>
+        <a class="toggle-item" data-target="register" href="/register">Register</a>
+      </div>
+    </aside>
+
+    <section class="right">
+      <header class="brand">
+        <img src="/assets/logo.png" alt="Archer's Forum" class="brand-logo">
+      </header>
+
+      <h1 class="title">{{heading}}</h1>
+      <p class="subtitle">{{subtitle}}</p>
+
+      <form id="authForm" data-mode="{{mode}}" class="form" novalidate>
+        {{#if isRegister}}
+        <label class="field">
+          <span class="label">Name</span>
+          <input name="name" class="input" type="text" required>
+        </label>
+        {{/if}}
+
+        <label class="field">
+          <span class="label">Email</span>
+          <input name="email" class="input" type="email" required>
+        </label>
+
+        <label class="field">
+          <span class="label">Password</span>
+          <div class="pw-wrap">
+            <input name="password" class="input" type="password" required>
+            <img id="togglePw" class="eye-icon" src="/assets/show_pass.png" alt="Show password">
+          </div>
+        </label>
+
+        <button class="btn" type="submit">{{submitLabel}}</button>
+        <p class="msg" id="authMsg"></p>
+
+        {{#if isLogin}}
+        <div class="demo-account">
+          <p><strong>admin@archersforum.com</strong> / <strong>admin1234</strong> (Admin)</p>
+        </div>
+        {{/if}}
+      </form>
+    </section>
+  </section>
+</main>

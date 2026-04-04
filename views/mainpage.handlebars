@@ -1,0 +1,223 @@
+<header class="main-header">
+  <div class="header-left">
+    <a href="/mainpage" id="logoLink" class="logo-link">
+      <img class="nav-logo" src="/assets/logo_2.png" alt="Archer's Forum Logo" />
+    </a>
+  </div>
+
+  <div class="header-center">
+    <div class="search-wrapper">
+      <input id="searchInput" type="text" placeholder="Search posts, tags, or categories..." autocomplete="off" />
+      <div id="searchHistory" class="search-history-dropdown"></div>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <label class="theme-switch" for="checkbox">
+      <input type="checkbox" id="checkbox" />
+      <div class="slider"></div>
+    </label>
+    <div class="notif-wrapper">
+      <button class="btn-notif" id="notifBell" title="Notifications">
+        <img src="/assets/notification.png" alt="Bell" style="width: 24px; filter: brightness(0) invert(1);">
+      <span class="notif-badge" id="notifBadge" hidden>0</span>
+      </button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-header">Notifications</div>
+        <div class="notif-body" id="notifList">
+          <p class="empty-notif">No new notifications</p>
+        </div>
+      </div>
+    </div>
+    <a class="profile-link" id="profileLink" href="/profile">
+      <img
+        id="headerAvatar"
+        class="user-avatar-img"
+        src="/assets/default_pfp.png"
+        alt="User avatar"
+      />
+      <span class="user-name" id="headerUserName">User</span>
+    </a>
+    <button class="btn-logout" type="button">Logout</button>
+  </div>
+</header>
+
+<main class="layout-container">
+  <section>
+    <div class="content-card collapsible-card">
+      <button class="collapse-head" type="button" data-collapse-target="categoriesBody" aria-expanded="true">
+        <h3>Categories</h3>
+        <span class="collapse-caret">▾</span>
+      </button>
+
+      <div class="collapse-body open" id="categoriesBody">
+        <ul class="category-menu" id="categoryMenu">
+          <li class="active" data-category="All">All</li>
+          <li data-category="Academics">Academics</li>
+          <li data-category="Events">Events</li>
+          <li data-category="Organizations">Organizations</li>
+          <li data-category="Buy &amp; Sell">Buy &amp; Sell</li>
+          <li data-category="General Questions">General Questions</li>
+          <li data-category="Professor Reviews">Professor Reviews</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="content-card collapsible-card">
+      <button class="collapse-head" type="button" data-collapse-target="tagsBody" aria-expanded="true">
+        <h3>Tags</h3>
+        <span class="collapse-caret">▾</span>
+      </button>
+
+      <div class="collapse-body open" id="tagsBody">
+        <div class="chips-wrap" id="allTagsChips">
+          <p class="placeholder-text" id="noTagsText">No tags yet</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="post-input-container">
+      <input id="quickPostTitle" type="text" placeholder="Add a new thread..." maxlength="80" />
+      <button class="plus-btn" id="openComposerBtn" type="button" title="Create Post">
+        <img class="plus-icon-img" src="/assets/create_post.png" alt="Create" />
+      </button>
+    </div>
+
+    <div class="feed-header">
+      <h3 id="feedTitle">All Posts</h3>
+      <div class="sort-wrap">
+        <span class="sr-only">Sort</span>
+
+        <div class="dropdown" id="sortDropdown">
+          <button class="dropdown-btn" id="sortBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="sortLabel">Newest</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+
+          <div class="dropdown-menu" id="sortMenu" role="listbox" aria-label="Sort options">
+            <button class="dropdown-item selected" type="button" role="option" data-value="newest">Newest</button>
+            <button class="dropdown-item" type="button" role="option" data-value="oldest">Oldest</button>
+            <button class="dropdown-item" type="button" role="option" data-value="top">Trending</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="feedEmpty" class="empty-feed-card">
+      <h2>No posts yet</h2>
+      <p>Start a discussion by creating the first post!</p>
+      <button class="btn-create" id="createFirstBtn" type="button">Create Post</button>
+    </div>
+
+    <div id="feedEmptyBookmarks" class="empty-feed-card" style="display:none">
+      <h2>No bookmarks yet</h2>
+      <p>Click the bookmark icon on any post to save it here.</p>
+    </div>
+
+    <div id="postsFeed" class="posts-feed"></div>
+  </section>
+
+  <section>
+    <div class="content-card">
+      <h3>Trending Tags</h3>
+      <div class="chips-wrap" id="trendingTags">
+        <p class="placeholder-text" id="noTrendingText">No trending tags yet</p>
+      </div>
+    </div>
+
+    <div class="content-card rules-card">
+      <h3>Community Rules</h3>
+      <ol>
+        <li>Follow <a href="https://www.dlsu.edu.ph/wp-content/uploads/pdf/osa/student-handbook.pdf" target="_blank" rel="noopener noreferrer">Archtiquette</a>.</li>
+        <li>Be respectful &amp; civil to all.</li>
+        <li>No doxxing, harassment, or hate speech.</li>
+        <li>Use category and tags correctly to avoid confusion.</li>
+        <li>No posting of NSFW content.</li>
+        <li>No scalping and unjust enlistment.</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<div class="modal-overlay" id="composerOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="composerTitle">
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <img class="modal-title-icon" src="/assets/create_post.png" alt="" />
+        <h2 id="composerTitle">Create Post</h2>
+      </div>
+      <button class="modal-close" id="closeComposerBtn" type="button" aria-label="Close">×</button>
+    </div>
+
+    <form id="createPostForm">
+      <div class="form-row">
+        <label for="postTitle">Title</label>
+        <input id="postTitle" type="text" maxlength="80" placeholder="e.g., Whats the best GE course?" required />
+        <div class="help-text"><span id="titleCount">0</span>/80</div>
+      </div>
+
+      <div class="form-row">
+        <label for="postCategory">Category</label>
+        <select id="postCategory" required>
+          <option value="" disabled selected>Select a category</option>
+          <option>Academics</option>
+          <option>Events</option>
+          <option>Organizations</option>
+          <option>Buy &amp; Sell</option>
+          <option>General Questions</option>
+          <option>Professor Reviews</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label for="postTags">Tags (comma separated)</label>
+        <input id="postTags" type="text" placeholder="e.g., frosh, enlistment, profs" />
+      </div>
+
+      <div class="form-row">
+        <label for="postBody">Body</label>
+        <textarea id="postBody" rows="6" placeholder="Write your post here..." required></textarea>
+      </div>
+
+      <div class="form-row">
+        <label for="postMedia">Media <span class="help-text-inline">(images/videos, up to 10 files, max 100 MB each)</span></label>
+        <label class="media-upload-label" for="postMedia">
+          <span class="media-upload-icon">📎</span> Choose files…
+        </label>
+        <input id="postMedia" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime" multiple />
+        <div id="mediaPreviewList" class="media-preview-list"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" id="cancelComposerBtn" type="button">Cancel</button>
+        <button class="btn-primary" type="submit">Post</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailOverlay" aria-hidden="true">
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-header">
+      <h2 id="detailTitle">Post</h2>
+      <button class="modal-close" id="closeDetailBtn" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div id="detailContent" class="detail-content"></div>
+
+    <div class="detail-comments">
+      <h3 class="detail-subtitle">Comments</h3>
+
+      <form id="commentForm" class="comment-form">
+        <textarea id="commentText" rows="3" placeholder="Write a comment..." required></textarea>
+        <div class="comment-actions">
+          <button id="submitCommentBtn" class="btn-primary" type="button">Post Comment</button>
+        </div>
+      </form>
+
+      <div id="commentsList" class="comments-list"></div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,73 @@
+.bookmark-remove-btn {
+  color: #9b1c1c;
+  border-color: rgba(155, 28, 28, 0.24);
+}
+
+.page-shell--bookmarks {
+  align-items: start;
+}
+
+.page-card {
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  margin-bottom: 0;
+}
+
+.page-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+}
+
+.page-card-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+}
+
+.bookmark-remove-btn:hover {
+  background: rgba(254, 226, 226, 0.75);
+}
+
+@media (max-width: 900px) {
+  .page-shell--bookmarks {
+    grid-template-columns: 1fr;
+  }
+
+  .page-shell--bookmarks > section:first-child,
+  .page-shell--bookmarks > section:last-child {
+    display: none;
+  }
+
+  .page-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+[data-theme="dark"] .bookmark-remove-btn {
+  color: #fca5a5;
+  border-color: rgba(252, 165, 165, 0.34);
+}
+
+[data-theme="dark"] .page-card {
+  border-color: #3e4042;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+
+[data-theme="dark"] .page-card-head {
+  border-bottom-color: #3e4042;
+}
+
+[data-theme="dark"] .page-card-head h3 {
+  color: #e4e6eb;
+}
+
+[data-theme="dark"] .bookmark-remove-btn:hover {
+  background: rgba(127, 29, 29, 0.35);
+}

@@ -1,0 +1,61 @@
+<header class="main-header">
+  <div class="header-left">
+    <a href="/mainpage" class="logo-link">
+      <img class="nav-logo" src="/assets/logo_2.png" alt="Archer's Forum Logo" />
+    </a>
+    <a href="/profile" class="btn-admin-back" id="adminBackLink">Back</a>
+  </div>
+
+  <div class="header-center">
+    <h2 class="admin-title">Admin Reports</h2>
+  </div>
+
+  <div class="header-right">
+    <div class="notif-wrapper">
+      <button class="btn-notif" id="notifBell" title="Notifications">
+        <img src="/assets/notification.png" alt="Bell" style="width: 24px; filter: brightness(0) invert(1);">
+      <span class="notif-badge" id="notifBadge" hidden>0</span>
+      </button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-header">Notifications</div>
+        <div class="notif-body" id="notifList">
+          <p class="empty-notif">No new notifications</p>
+        </div>
+      </div>
+    </div>
+    <button class="btn-logout" id="adminLogoutBtn" type="button">Logout</button>
+  </div>
+</header>
+
+<main class="layout-container page-shell page-shell--admin">
+  <section></section>
+  <section class="admin-wrap">
+    <div class="admin-tabs">
+      <button class="btn-tab active" id="tabReported">
+        Reported Posts
+      </button>
+      <button class="btn-tab" id="tabTrash">
+        Trash Bin
+      </button>
+    </div>
+
+    <section class="admin-card" id="reportedSection">
+      <div class="admin-card-head">
+        <h3>Reported Posts</h3>
+        <button class="btn-refresh-reports" id="refreshReportsBtn" type="button">Refresh</button>
+      </div>
+      <div id="adminMsg" class="admin-msg" hidden></div>
+      <div id="reportedPostsList" class="reported-list"></div>
+    </section>
+
+    <section class="admin-card" id="trashSection" style="display: none;">
+      <div class="admin-card-head">
+        <h3>Trash Bin (Deleted Posts)</h3>
+        <button class="btn-refresh-reports" id="refreshTrashBtn" type="button">Refresh Trash</button>
+      </div>
+      <div id="trashMsg" class="admin-msg" hidden></div>
+      <div id="trashPostsList" class="reported-list"></div>
+    </section>
+  </section>
+  <section></section>
+</main>
