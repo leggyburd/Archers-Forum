@@ -11,6 +11,11 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'All fields are required.' });
   }
 
+  // Validate email format - must contain @ symbol
+  if (!email.includes('@')) {
+    return res.status(400).json({ error: 'Please enter a valid email address with @ symbol.' });
+  }
+
   try {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
@@ -38,10 +43,17 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
+    
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
+    
+    // Check if account is disabled
+    if (user.isDisabled) {
+      return res.status(403).json({ error: 'Your account has been disabled by an administrator.' });
+    }
+    
     req.session.user = {
       id: user._id,
       name: user.name,

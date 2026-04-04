@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const Post    = require('../model/Post');
 const User    = require('../model/User');
+const Notification = require('../model/Notification');
 const multer  = require('multer');
 const path    = require('path');
 const crypto  = require('crypto');
@@ -35,6 +36,56 @@ const upload = multer({
   },
 });
 
+function normalizeMediaUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+
+  if (/^https?:/i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      const normalizedPath = (parsed.pathname || '').replace(/\\/g, '/');
+      if (normalizedPath.includes('/uploads/')) {
+        return normalizedPath.slice(normalizedPath.indexOf('/uploads/'));
+      }
+      return raw;
+    } catch (_err) {
+      // Fall through.
+    }
+  }
+
+  if (/^data:/i.test(raw)) return raw;
+  if (/^blob:/i.test(raw)) return null;
+
+  let normalized = raw.replace(/\\/g, '/');
+  if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+  if (normalized.startsWith('/uploads/')) return normalized;
+  if (normalized.includes('/uploads/')) {
+    return normalized.slice(normalized.indexOf('/uploads/'));
+  }
+  return normalized;
+}
+
+async function cleanupRemovedMediaFiles(previousMediaUrls, nextMediaUrls) {
+  const previous = new Set((previousMediaUrls || []).map(normalizeMediaUrl).filter(Boolean));
+  const next = new Set((nextMediaUrls || []).map(normalizeMediaUrl).filter(Boolean));
+  const removed = Array.from(previous).filter((url) => !next.has(url));
+
+  await Promise.all(
+    removed.map(async (url) => {
+      if (!String(url || '').startsWith('/uploads/')) return;
+
+      const filePath = path.join(UPLOAD_DIR, path.basename(url));
+      try {
+        await fs.promises.unlink(filePath);
+      } catch (err) {
+        if (err && err.code !== 'ENOENT') {
+          console.error('Failed to delete removed media file:', filePath, err.message);
+        }
+      }
+    }),
+  );
+}
+
 // Normalize Mongo documents into frontend-friendly objects.
 // The client expects string ids and numeric timestamps.
 function serializePost(post) {
@@ -44,6 +95,7 @@ function serializePost(post) {
   obj.createdAt = obj.createdAt instanceof Date
     ? obj.createdAt.getTime()
     : obj.createdAt;
+  obj.mediaUrls = (obj.mediaUrls || []).map(normalizeMediaUrl).filter(Boolean);
 
   obj.comments = (obj.comments || []).map((c) => {
     c.id = c._id.toString();
@@ -93,6 +145,63 @@ async function isAdminEmail(email) {
   if (!email) return false;
   const admin = await User.findOne({ email: String(email).toLowerCase(), role: 'admin' });
   return Boolean(admin);
+}
+
+async function createPostNotification({ recipientEmail, actorEmail, type, message, postId }) {
+  try {
+    const recipient = await User.findOne({ email: String(recipientEmail || '').toLowerCase() });
+    if (!recipient) return;
+
+    const normalizedActorEmail = String(actorEmail || '').toLowerCase();
+    if (normalizedActorEmail && normalizedActorEmail === String(recipient.email).toLowerCase()) {
+      return;
+    }
+
+    let actor = null;
+    if (normalizedActorEmail) {
+      actor = await User.findOne({ email: normalizedActorEmail });
+    }
+
+    await Notification.create({
+      user: recipient._id,
+      type,
+      fromUser: actor ? actor._id : null,
+      message,
+      postId: String(postId || ''),
+      isRead: false,
+    });
+  } catch (err) {
+    console.error('Failed to create post notification:', err.message);
+  }
+}
+
+async function createAdminReportNotifications({ reporterEmail, reporterName, post }) {
+  try {
+    const admins = await User.find({ role: 'admin' }).select('_id email');
+    if (!admins.length) return;
+
+    const normalizedReporter = String(reporterEmail || '').toLowerCase();
+    const reporter = await User.findOne({ email: normalizedReporter }).select('_id');
+
+    const message = `${reporterName} reported a post: "${post.title}"`;
+
+    const notifications = admins
+      .filter((admin) => String(admin.email || '').toLowerCase() !== normalizedReporter)
+      .map((admin) => ({
+        user: admin._id,
+        type: 'report',
+        fromUser: reporter ? reporter._id : null,
+        message,
+        postId: String(post._id),
+        isRead: false,
+      }));
+
+    if (notifications.length) {
+      await Notification.insertMany(notifications);
+    }
+  } catch (err) {
+    console.error('Failed to create admin report notifications:', err.message);
+  }
 }
 
 // List posts with optional filtering and sorting.
@@ -175,6 +284,133 @@ router.get('/reported', async (req, res) => {
   }
 });
 
+router.get('/latest', async (req, res) => {
+  try {
+    const { since } = req.query;
+
+    const sinceDate = since ? new Date(parseInt(since)) : new Date(Date.now() - 5 * 60 * 1000);
+
+    const posts = await Post.find({
+      createdAt: { $gt: sinceDate },
+      isDeleted: { $ne: true }
+    })
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+    const participantEmails = new Set();
+    posts.forEach((post) => {
+      if (post.authorEmail) participantEmails.add(post.authorEmail);
+      (post.comments || []).forEach((comment) => {
+        if (comment.authorEmail) participantEmails.add(comment.authorEmail);
+        (comment.replies || []).forEach((reply) => {
+          if (reply.authorEmail) participantEmails.add(reply.authorEmail);
+        });
+      });
+    });
+
+    const users = await User.find({ email: { $in: Array.from(participantEmails) } });
+    const avatarMap = {};
+    users.forEach((u) => {
+      avatarMap[u.email] = u.avatar || DEFAULT_AVATAR;
+    });
+
+    const serializedPosts = posts.map((post) => {
+      const obj = serializePost(post);
+      obj.authorAvatar = avatarMap[obj.authorEmail] || DEFAULT_AVATAR;
+      obj.comments = (obj.comments || []).map((comment) => ({
+        ...comment,
+        authorAvatar: avatarMap[comment.authorEmail] || DEFAULT_AVATAR,
+        replies: (comment.replies || []).map((reply) => ({
+          ...reply,
+          authorAvatar: avatarMap[reply.authorEmail] || DEFAULT_AVATAR,
+        })),
+      }));
+      return obj;
+    });
+    res.json(serializedPosts);
+  } catch (err) {
+    console.error('Error fetching latest posts:', err);
+    res.status(500).json({ error: 'Failed to fetch latest posts' });
+  }
+});
+
+router.get('/comments/latest', async (req, res) => {
+  try {
+    const { since } = req.query;
+
+    const sinceDate = since ? new Date(parseInt(since)) : new Date(Date.now() - 5 * 60 * 1000);
+
+    const posts = await Post.find({
+      isDeleted: { $ne: true },
+      $or: [
+        { 'comments.createdAt': { $gt: sinceDate } },
+        { 'comments.replies.createdAt': { $gt: sinceDate } }
+      ]
+    });
+
+    const participantEmails = new Set();
+    posts.forEach((post) => {
+      if (post.authorEmail) participantEmails.add(post.authorEmail);
+      (post.comments || []).forEach((comment) => {
+        if (comment.authorEmail) participantEmails.add(comment.authorEmail);
+        (comment.replies || []).forEach((reply) => {
+          if (reply.authorEmail) participantEmails.add(reply.authorEmail);
+        });
+      });
+    });
+
+    const users = await User.find({ email: { $in: Array.from(participantEmails) } });
+    const avatarMap = {};
+    users.forEach((u) => {
+      avatarMap[u.email] = u.avatar || DEFAULT_AVATAR;
+    });
+
+    const postsWithNewComments = [];
+
+    posts.forEach(post => {
+      let hasNewContent = false;
+      const serializedPost = serializePost(post);
+
+      serializedPost.comments = serializedPost.comments.filter(comment => {
+        const commentTime = new Date(comment.createdAt);
+        const isNewComment = commentTime > sinceDate;
+
+        comment.replies = comment.replies.filter(reply => {
+          const replyTime = new Date(reply.createdAt);
+          return replyTime > sinceDate;
+        });
+
+        const hasNewReplies = comment.replies.length > 0;
+
+        if (isNewComment || hasNewReplies) {
+          hasNewContent = true;
+          return true;
+        }
+
+        return false;
+      });
+
+      if (hasNewContent) {
+        serializedPost.authorAvatar = avatarMap[serializedPost.authorEmail] || DEFAULT_AVATAR;
+        serializedPost.comments = (serializedPost.comments || []).map((comment) => ({
+          ...comment,
+          authorAvatar: avatarMap[comment.authorEmail] || DEFAULT_AVATAR,
+          replies: (comment.replies || []).map((reply) => ({
+            ...reply,
+            authorAvatar: avatarMap[reply.authorEmail] || DEFAULT_AVATAR,
+          })),
+        }));
+        postsWithNewComments.push(serializedPost);
+      }
+    });
+
+    res.json(postsWithNewComments);
+  } catch (err) {
+    console.error('Error fetching latest comments:', err);
+    res.status(500).json({ error: 'Failed to fetch latest comments' });
+  }
+});
+
 // Fetch one post by id.
 router.get('/:id', async (req, res) => {
   try {
@@ -218,19 +454,55 @@ router.post('/', upload.array('media', 10), async (req, res) => {
 });
 
 // Update an existing post.
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.array('media', 10), async (req, res) => {
   try {
-    const { title, body, category, tags } = req.body;
+    const { title, body, category, tags, email, keptMediaUrls } = req.body;
 
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
 
+    const requesterEmail = String(email || '').trim().toLowerCase();
+    const ownerEmail = String(post.authorEmail || '').trim().toLowerCase();
+
+    if (ownerEmail !== requesterEmail) {
+      return res.status(403).json({ error: 'Unauthorized.' });
+    }
+
     if (title    !== undefined) post.title    = title;
     if (body     !== undefined) post.body     = body;
     if (category !== undefined) post.category = category;
-    if (tags     !== undefined) post.tags     = tags;
+    if (tags     !== undefined) {
+      post.tags = typeof tags === 'string'
+        ? tags.split(',').map((t) => t.trim()).filter(Boolean)
+        : Array.isArray(tags)
+          ? tags.map((t) => String(t || '').trim()).filter(Boolean)
+          : tags;
+    }
+
+    const previousMediaUrls = Array.isArray(post.mediaUrls) ? post.mediaUrls.slice() : [];
+
+    let retainedMediaUrls = [];
+    if (keptMediaUrls) {
+      try {
+        const parsed = JSON.parse(keptMediaUrls);
+        if (Array.isArray(parsed)) {
+          retainedMediaUrls = parsed.map(normalizeMediaUrl).filter(Boolean);
+        }
+      } catch (_err) {
+        retainedMediaUrls = String(keptMediaUrls)
+          .split(',')
+          .map((url) => normalizeMediaUrl(url))
+          .filter(Boolean);
+      }
+    }
+
+    const uploadedMediaUrls = (req.files || []).map((f) => `/uploads/${f.filename}`);
+    if ((req.files && req.files.length > 0) || keptMediaUrls !== undefined) {
+      post.mediaUrls = [...retainedMediaUrls, ...uploadedMediaUrls];
+    }
 
     await post.save();
+    await cleanupRemovedMediaFiles(previousMediaUrls, post.mediaUrls);
     res.json(serializePost(post));
   } catch (err) {
     res.status(500).json({ error: 'Failed to update post.' });
@@ -262,6 +534,8 @@ router.delete('/:id', async (req, res) => {
 router.put('/:id/vote', async (req, res) => {
   try {
     const delta = Number(req.body.delta) || 0;
+    const voterName = String(req.body.voterName || 'Someone').trim() || 'Someone';
+    const voterEmail = String(req.body.voterEmail || '').toLowerCase();
 
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
@@ -269,19 +543,33 @@ router.put('/:id/vote', async (req, res) => {
     post.score = (post.score || 0) + delta;
     await post.save();
 
+    if (delta > 0) {
+      await createPostNotification({
+        recipientEmail: post.authorEmail,
+        actorEmail: voterEmail,
+        type: 'like',
+        message: `${voterName} liked your post: "${post.title}"`,
+        postId: post._id,
+      });
+    }
+
     res.json({ score: post.score });
   } catch (err) {
     res.status(500).json({ error: 'Failed to vote.' });
   }
 });
 
-// Submit a report for a post.
 router.post('/:id/report', async (req, res) => {
   try {
     const { reporterName, reporterEmail, reason, details } = req.body;
 
     if (!reporterName || !reporterEmail || !reason) {
       return res.status(400).json({ error: 'Missing required report fields.' });
+    }
+
+    // Check if reporter is an admin
+    if (await isAdminEmail(reporterEmail)) {
+      return res.status(403).json({ error: 'Admins cannot report posts.' });
     }
 
     const post = await Post.findById(req.params.id);
@@ -300,6 +588,12 @@ router.post('/:id/report', async (req, res) => {
     });
 
     await post.save();
+    await createAdminReportNotifications({
+      reporterEmail,
+      reporterName,
+      post,
+    });
+
     res.status(201).json({ message: 'Report submitted.' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to submit report.' });
@@ -326,7 +620,6 @@ router.put('/:id/reports/resolve', async (req, res) => {
   }
 });
 
-// Delete a reported post (admin only).
 router.delete('/:id/reports/delete', async (req, res) => {
   try {
     const adminEmail = String(req.body.adminEmail || '').toLowerCase();
@@ -343,8 +636,7 @@ router.delete('/:id/reports/delete', async (req, res) => {
   }
 });
 
-// Add either a top-level comment or a reply.
-// Send parentCommentId to add a reply.
+
 router.post('/:id/comments', async (req, res) => {
   try {
     const { body, authorName, authorEmail, parentCommentId } = req.body;
@@ -382,7 +674,6 @@ router.post('/:id/comments', async (req, res) => {
           return res.status(404).json({ error: 'Parent comment not found.' });
         }
 
-        // Keep replies one level deep under their top-level parent comment.
         owningComment.replies.push({
           ...newEntry,
           replyToId: parentId,
@@ -394,13 +685,21 @@ router.post('/:id/comments', async (req, res) => {
     }
 
     await post.save();
+
+    await createPostNotification({
+      recipientEmail: post.authorEmail,
+      actorEmail: authorEmail,
+      type: 'comment',
+      message: `${authorName} commented on your post: "${post.title}"`,
+      postId: post._id,
+    });
+
     res.status(201).json(serializePost(post));
   } catch (err) {
     res.status(500).json({ error: 'Failed to add comment.' });
   }
 });
 
-// Edit a top-level comment or nested reply when owned by the requester.
 router.put('/:id/comments/:commentId', async (req, res) => {
   try {
     const { body, authorEmail } = req.body;
@@ -453,7 +752,6 @@ router.put('/:id/comments/:commentId', async (req, res) => {
   }
 });
 
-// Apply a signed vote delta to a comment or reply.
 router.put('/:id/comments/:commentId/vote', async (req, res) => {
   try {
     const delta = Number(req.body.delta) || 0;
@@ -490,7 +788,6 @@ router.put('/:id/comments/:commentId/vote', async (req, res) => {
   }
 });
 
-// Delete either a top-level comment or a nested reply.
 router.delete('/:id/comments/:commentId', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -498,7 +795,6 @@ router.delete('/:id/comments/:commentId', async (req, res) => {
 
     const cid = req.params.commentId;
 
-    // Check top-level comments first.
     const topComment = post.comments.id(cid);
     if (topComment) {
       topComment.deleteOne();
@@ -506,7 +802,6 @@ router.delete('/:id/comments/:commentId', async (req, res) => {
       return res.json(serializePost(post));
     }
 
-    // If not found, look through nested replies.
     let found = false;
     for (const c of post.comments) {
       const replyIdx = (c.replies || []).findIndex(
@@ -549,7 +844,6 @@ router.get('/deleted/all', async (req, res) => {
   }
 });
 
-// Admins can restore a deleted post
 router.put('/:id/restore', async (req, res) => {
   try {
     const adminEmail = String(req.body.adminEmail || '').toLowerCase();
@@ -560,7 +854,7 @@ router.put('/:id/restore', async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
 
-    post.isDeleted = false; // Bring post back
+    post.isDeleted = false; 
     await post.save();
 
     res.json({ message: 'Post restored.', post: serializePost(post) });
