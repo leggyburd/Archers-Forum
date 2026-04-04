@@ -7,8 +7,9 @@
 
   <div class="header-center">
     <div class="search-wrapper">
-      <input id="searchInput" type="text" placeholder="Search posts, tags, or categories..." autocomplete="off" />
+      <input id="searchInput" type="text" placeholder="Search posts, tags, categories, or users..." autocomplete="off" />
       <div id="searchHistory" class="search-history-dropdown"></div>
+      <div id="userSearchResults" class="user-search-dropdown"></div>
     </div>
   </div>
 
@@ -23,7 +24,16 @@
       <span class="notif-badge" id="notifBadge" hidden>0</span>
       </button>
       <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-header">Notifications</div>
+        <div class="notif-header">
+          <div class="notif-header-title-wrap">
+            <span id="notifHeaderTitle">Notifications</span>
+            <span class="notif-header-count" id="notifHeaderCount" hidden>0 unread</span>
+          </div>
+          <div class="notif-header-actions">
+            <button type="button" class="notif-read-btn" id="markNotificationsReadBtn">Mark read</button>
+            <button type="button" class="notif-clear-btn" id="clearNotificationsBtn">Clear</button>
+          </div>
+        </div>
         <div class="notif-body" id="notifList">
           <p class="empty-notif">No new notifications</p>
         </div>

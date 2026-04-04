@@ -1,0 +1,143 @@
+{{! User Management Page for Admins }}
+<header class="main-header">
+  <div class="header-left">
+    <a href="/mainpage" class="logo-link">
+      <img class="nav-logo" src="/assets/logo_2.png" alt="Archer's Forum Logo" />
+    </a>
+    <a href="/mainpage" class="btn-admin-back" id="adminBackLink">Back</a>
+  </div>
+
+  <div class="header-center">
+    <h2 class="admin-title">User Management</h2>
+  </div>
+
+  <div class="header-right" id="headerActions">
+    <div class="notif-wrapper">
+      <button class="btn-notif" id="notifBell" title="Notifications">
+        <img src="/assets/notification.png" alt="Bell" style="width: 24px; filter: brightness(0) invert(1);">
+        <span class="notif-badge" id="notifBadge" hidden>0</span>
+      </button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-header">
+          <div class="notif-header-title-wrap">
+            <span id="notifHeaderTitle">Notifications</span>
+            <span class="notif-header-count" id="notifHeaderCount" hidden>0 unread</span>
+          </div>
+          <div class="notif-header-actions">
+            <button type="button" class="notif-read-btn" id="markNotificationsReadBtn">Mark read</button>
+            <button type="button" class="notif-clear-btn" id="clearNotificationsBtn">Clear</button>
+          </div>
+        </div>
+        <div class="notif-body" id="notifList">
+          <p class="empty-notif">No new notifications</p>
+        </div>
+      </div>
+    </div>
+    <a class="btn-admin" id="headerReportsBtn" href="/admin">Reports</a>
+    <button class="btn-logout" type="button" onclick="handleLogout()">
+      Logout
+    </button>
+  </div>
+</header>
+
+<main class="layout-container page-shell page-shell--admin">
+  <section></section>
+  <section class="admin-wrap">
+    <div class="admin-card">
+      <div class="admin-card-head">
+        <h3>👥 User Management</h3>
+        <button class="btn-refresh-reports" id="refreshUsersBtn" type="button">Refresh Users</button>
+      </div>
+      <div id="userManagementMsg" class="admin-msg" hidden></div>
+      
+      <!-- User Statistics -->
+      <div class="user-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="totalUsers">-</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="activeUsers">-</div>
+          <div class="stat-label">Active Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="disabledUsers">-</div>
+          <div class="stat-label">Disabled Users</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="adminUsers">-</div>
+          <div class="stat-label">Admins</div>
+        </div>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="user-controls">
+        <input type="text" id="searchUsers" placeholder="Search users by name or email..." class="search-input" />
+        <select id="filterUsers" class="filter-select">
+          <option value="all">All Users</option>
+          <option value="active">Active Only</option>
+          <option value="disabled">Disabled Only</option>
+          <option value="admins">Admins Only</option>
+        </select>
+      </div>
+
+      <!-- Users List -->
+      <div id="usersList" class="users-list">
+        <div class="loading-placeholder">Loading users...</div>
+      </div>
+    </div>
+  </section>
+  <section></section>
+</main>
+
+<!-- User Detail Modal -->
+<div id="userDetailModal" class="user-detail-modal" style="display: none;">
+  <div class="user-detail-modal-content">
+    <div class="user-detail-header">
+      <h3 id="userDetailTitle">User Details</h3>
+      <button class="user-detail-close" id="closeUserDetail">✕</button>
+    </div>
+    <div class="user-detail-body" id="userDetailBody">
+      <!-- User details will be populated here -->
+    </div>
+  </div>
+</div>
+
+<!-- Warning Modal -->
+<div id="warningModal" class="warning-modal" style="display: none;">
+  <div class="warning-modal-content">
+    <div class="warning-modal-header">
+      <h3 id="warningModalTitle">Send Warning</h3>
+      <button class="warning-modal-close" id="closeWarningModal">✕</button>
+    </div>
+    <div class="warning-modal-body">
+      <p>Send a warning message to <strong id="warningUserName"></strong>:</p>
+      <textarea id="warningMessage" placeholder="Enter your warning message here..." rows="4" maxlength="500"></textarea>
+      <div class="warning-actions">
+        <button class="btn-secondary" id="cancelWarning">Cancel</button>
+        <button class="btn-primary" id="sendWarning">Send Warning</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="confirm-modal" style="display: none;">
+  <div class="confirm-modal-content">
+    <h3 id="confirmTitle">Confirm Action</h3>
+    <p id="confirmMessage">Are you sure you want to perform this action?</p>
+    <div class="confirm-actions">
+      <button class="btn-secondary" id="confirmCancel">Cancel</button>
+      <button class="btn-danger" id="confirmAction">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function handleLogout() {
+    localStorage.removeItem('af_user');
+    localStorage.removeItem('af_user_email');
+    localStorage.removeItem('af_user_role');
+    window.location.href = '/login';
+  }
+</script>
