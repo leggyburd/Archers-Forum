@@ -22,6 +22,49 @@
   transition: background 0.18s, border-color 0.18s, color 0.18s;
 }
 
+.rf-action.rf-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #0f5132;
+  border: 1px solid rgba(31, 112, 60, 0.2);
+  background: rgba(255, 255, 255, 0.98);
+  font-weight: 900;
+  font-size: 0.86rem;
+  padding: 8px 14px;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.rf-action.rf-edit .rf-edit-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  object-fit: contain;
+  transition: filter 0.18s ease;
+  filter: none;
+}
+
+.rf-action.rf-edit .rf-edit-text {
+  font-weight: 900;
+  color: #111111;
+  font-size: 0.86rem;
+}
+
+.rf-action.rf-edit:hover {
+  background: rgba(31, 112, 60, 0.12) !important;
+  border-color: rgba(31, 112, 60, 0.38) !important;
+  color: #0b3d25 !important;
+}
+
+.rf-action.rf-edit:hover .rf-edit-icon,
+.rf-action.rf-edit:hover .rf-edit-text {
+  color: #1f703c !important;
+}
+
+.rf-action.rf-edit:hover .rf-edit-icon {
+  filter: brightness(0) saturate(100%) invert(32%) sepia(84%) saturate(451%) hue-rotate(101deg) brightness(89%) contrast(89%);
+}
+
 .rf-action.rf-danger .rf-trashcan-icon {
   width: 14px;
   height: 14px;
@@ -51,6 +94,36 @@
   color: #fecaca;
   border-color: rgba(248, 113, 113, 0.42);
   background: rgba(127, 29, 29, 0.18);
+}
+
+[data-theme="dark"] .rf-action.rf-edit {
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.42);
+  background: rgba(20, 83, 45, 0.18);
+}
+
+[data-theme="dark"] .rf-action.rf-edit .rf-edit-icon,
+[data-theme="dark"] .rf-action.rf-edit .rf-edit-text {
+  color: #111111;
+}
+
+[data-theme="dark"] .rf-action.rf-edit .rf-edit-icon {
+  filter: brightness(0) saturate(100%) invert(86%) sepia(14%) saturate(320%) hue-rotate(84deg) brightness(101%) contrast(96%);
+}
+
+[data-theme="dark"] .rf-action.rf-edit:hover {
+  background: rgba(74, 222, 128, 0.18) !important;
+  border-color: rgba(74, 222, 128, 0.56) !important;
+  color: #1f703c !important;
+}
+
+[data-theme="dark"] .rf-action.rf-edit:hover .rf-edit-icon,
+[data-theme="dark"] .rf-action.rf-edit:hover .rf-edit-text {
+  color: #1f703c !important;
+}
+
+[data-theme="dark"] .rf-action.rf-edit:hover .rf-edit-icon {
+  filter: brightness(0) saturate(100%) invert(68%) sepia(68%) saturate(382%) hue-rotate(87deg) brightness(96%) contrast(92%);
 }
 
 [data-theme="dark"] .rf-action.rf-danger .rf-trashcan-icon,

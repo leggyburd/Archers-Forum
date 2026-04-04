@@ -35,7 +35,7 @@ body {
   color: var(--text-main) !important;
 }
 
-.content-card, .rf-post, .modal, .post-input-container, .search-history-dropdown {
+.content-card, .rf-post, .modal, .post-input-container, .search-history-dropdown, .user-search-dropdown {
   background-color: var(--bg-card) !important;
   color: var(--text-main) !important;
   border-color: var(--border-color) !important;
@@ -347,6 +347,20 @@ body.is-leaving {
 
 .profile-link:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* Admin Profile Link Styling */
+.profile-link.admin-profile-link {
+  background: linear-gradient(135deg, rgba(70, 130, 180, 0.15), rgba(100, 149, 237, 0.15));
+  border: 1px solid rgba(70, 130, 180, 0.4);
+  color: #fff;
+}
+
+.profile-link.admin-profile-link:hover {
+  background: linear-gradient(135deg, rgba(70, 130, 180, 0.25), rgba(100, 149, 237, 0.25));
+  border-color: rgba(70, 130, 180, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(70, 130, 180, 0.2);
 }
 
 .user-avatar-img {
@@ -832,11 +846,237 @@ body.is-leaving {
 
 .notif-dropdown.show { display: block; }
 
-.notif-header { padding: 12px 15px; font-weight: 800; font-size: 14px; border-bottom: 1px solid #eee; color: #143621; }
+.notif-header {
+  padding: 12px 15px;
+  font-weight: 800;
+  font-size: 14px;
+  border-bottom: 1px solid #eee;
+  color: #143621;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.notif-header-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notif-header-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.notif-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.notif-read-btn,
+.notif-clear-btn {
+  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.notif-read-btn:hover,
+.notif-clear-btn:hover {
+  background: #eef2f7;
+}
+.notif-read-btn:disabled,
+.notif-clear-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
 .notif-body { max-height: 350px; overflow-y: auto; }
 .notif-item { padding: 12px 15px; border-bottom: 1px solid #f5f5f5; font-size: 13px; cursor: pointer; color: #333; }
 .notif-item.unread { background: #f0fdf4; font-weight: 600; border-left: 3px solid #1f703c; }
 
 [data-theme="dark"] .notif-dropdown { background: #242526; border-color: #3e4042; }
 [data-theme="dark"] .notif-header { color: #e4e6eb; border-color: #3e4042; }
+[data-theme="dark"] .notif-header-count { color: #b0b3b8; }
+[data-theme="dark"] .notif-read-btn,
+[data-theme="dark"] .notif-clear-btn { background: #3a3b3c; color: #e4e6eb; border-color: #4b4c4d; }
 [data-theme="dark"] .notif-item { color: #b0b3b8; border-color: #3e4042; }
+
+.user-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+
+  display: none;
+  flex-direction: column;
+  padding: 8px;
+
+  z-index: 2001 !important;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.user-search-dropdown.show {
+  display: flex;
+}
+
+.user-search-header {
+  padding: 8px 16px;
+  margin-bottom: 5px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #eee;
+}
+
+.user-search-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  gap: 12px;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.user-search-item:hover {
+  background-color: #f8fafc;
+}
+
+.user-search-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-search-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-search-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1f2937;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-search-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 2px 0 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-search-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.user-follow-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-follow-btn.follow {
+  background-color: #22c55e;
+  color: white;
+}
+
+.user-follow-btn.follow:hover {
+  background-color: #16a34a;
+}
+
+.user-follow-btn.unfollow {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.user-follow-btn.unfollow:hover {
+  background-color: #d1d5db;
+}
+
+.user-search-loading {
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.user-search-no-results {
+  padding: 16px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+[data-theme="dark"] .user-search-dropdown {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark theme admin profile link styling */
+[data-theme="dark"] .profile-link.admin-profile-link {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .profile-link.admin-profile-link:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(139, 92, 246, 0.25));
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .user-search-name {
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .user-search-email {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .user-search-item:hover {
+  background-color: #374151;
+}
+
+[data-theme="dark"] .user-follow-btn.unfollow {
+  background-color: #374151;
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .user-follow-btn.unfollow:hover {
+  background-color: #4b5563;
+}
