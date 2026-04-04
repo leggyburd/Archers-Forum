@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
     cover:    { type: String, default: '/assets/default_banner.png' }, 
     following: [{ type: String, lowercase: true, trim: true }], // Array of email addresses
     followers: [{ type: String, lowercase: true, trim: true }], // Array of email addresses
+    isDisabled: { type: Boolean, default: false }, // For account suspension
   },
   { timestamps: true }
 );

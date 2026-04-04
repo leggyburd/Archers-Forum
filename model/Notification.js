@@ -9,6 +9,7 @@ const notificationSchema = new mongoose.Schema({
   type: { type: String, required: true }, // e.g., 'follow'
   fromUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // The user who triggered the notification
   message: { type: String },
+  postId: { type: String, default: null },
   isRead: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
