@@ -127,6 +127,7 @@ function createApp() {
         '/js/mainpage/utils.js',
         '/js/mainpage/ui.js',
         '/js/mainpage/history.js',
+        '/js/mainpage/userSearch.js',
         '/js/mainpage/commentTree.js',
         '/js/mainpage/feedFilters.js',
         '/js/mainpage/reportModal.js',
