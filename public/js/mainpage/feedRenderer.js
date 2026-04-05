@@ -158,7 +158,7 @@
         </button>
       `;
 
-      const reportTopHtml = !isOwner(post) && userRole === 'admin'
+      const reportTopHtml = !isOwner(post) && userRole !== 'admin'
         ? '<button class="rf-top-right-action" type="button" data-action="report" aria-label="Report post" title="Report post"><img src="/assets/report_button.png" alt="" /></button>'
         : "";
 
