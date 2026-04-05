@@ -1195,7 +1195,7 @@ function handleDelete(postId) {
     bell.addEventListener('click', (e) => {
       e.stopPropagation();
       dropdown.classList.toggle('show');
-      window.AF_MAIN_UTILS.renderNotifications();
+      window.AF_MAIN_UTILS.initializeNotifications();
     });
 
     document.addEventListener('click', () => {
@@ -1236,5 +1236,8 @@ function handleDelete(postId) {
     }
   };
 
-  window.AF_MAIN_UTILS.renderNotifications();
+  if (window.AF_MAIN_UTILS) {
+    window.AF_MAIN_UTILS.initializeNotifications();
+    window.AF_MAIN_UTILS.startNotificationPolling();
+  }
 })();

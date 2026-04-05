@@ -289,7 +289,7 @@
     bell.addEventListener('click', (e) => {
       e.stopPropagation();
       dropdown.classList.toggle('show');
-      if (window.AF_MAIN_UTILS) window.AF_MAIN_UTILS.renderNotifications();
+      if (window.AF_MAIN_UTILS) window.AF_MAIN_UTILS.initializeNotifications();
     });
 
     document.addEventListener('click', () => {
@@ -301,5 +301,8 @@
     });
   }
 
-  if (window.AF_MAIN_UTILS) window.AF_MAIN_UTILS.renderNotifications();
+  if (window.AF_MAIN_UTILS) {
+    window.AF_MAIN_UTILS.initializeNotifications();
+    window.AF_MAIN_UTILS.startNotificationPolling();
+  }
 })();
