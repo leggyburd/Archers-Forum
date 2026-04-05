@@ -434,7 +434,10 @@
 
     if (composerOverlay) openOverlay(composerOverlay);
 
-    if (postTitle) postTitle.value = post.title || "";
+    if (postTitle) {
+      postTitle.value = post.title || "";
+      titleCount.textContent = String(postTitle.value.length); 
+    }
     if (postCategory) postCategory.value = post.category || "General Questions";
     if (postTags) postTags.value = (post.tags || []).join(", ");
     if (postBody) postBody.value = post.body || "";
@@ -452,11 +455,13 @@
       postMedia.disabled = false;
       postMedia.title = "";
     }
-
-    markComposerClean();
-
+     
+    if (composerOverlay) openOverlay(composerOverlay);
     if (postTitle) postTitle.focus();
+    markComposerClean();
   }
+
+  window.startEditPost = startEditPost;
 
   function openDetail(postId) {
     activePostId = postId;
