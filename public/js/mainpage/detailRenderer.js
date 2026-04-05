@@ -218,7 +218,7 @@
         ? '<div class="rf-actions"><button class="rf-action rf-danger" type="button" id="detailDeleteBtn">Delete</button></div>'
         : "";
 
-      const detailReportTopHtml = !isOwner(post) && userRole === 'admin'
+      const detailReportTopHtml = !isOwner(post) && userRole !== 'admin'
         ? '<button class="rf-top-right-action" type="button" id="detailReportBtn" aria-label="Report post" title="Report post"><img src="/assets/report_button.png" alt="" /></button>'
         : "";
 
