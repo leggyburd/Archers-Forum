@@ -982,3 +982,19 @@ button,
 .rf-top-right-action {
   background: transparent;
 }
+
+[data-theme="dark"] .chip.selected,
+[data-theme="dark"] .tag-chip.selected,
+[data-theme="dark"] .rf-tag.selected {
+  background-color: #1f703c !important; 
+  color: #ffffff !important;         
+  border-color: #1f703c !important;
+  opacity: 1 !important;
+}
+
+[data-theme="dark"] .chip:hover:not(.selected),
+[data-theme="dark"] .tag-chip:hover:not(.selected),
+[data-theme="dark"] .rf-tag:hover:not(.selected) {
+  background-color: #2d5a3c !important; 
+  color: #ffffff !important;
+}
