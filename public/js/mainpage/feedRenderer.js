@@ -1,6 +1,20 @@
 /*
   Main Page Feed Renderer
-  This module is responsible for rendering the list of posts on the main page, as well as the tag areas and bookmark items. It provides functions to create the HTML for each post card, tag chip, and bookmark item, using the provided utility functions and data accessors
+  This module is responsible for rendering the list of posts on the main page, as well as the tag areas and bookmark items. It provides funct      const canEditPost = isOwner(post);
+      const canDeletePost = isOwner(post) || userRole === 'admin';
+
+      const actionsHtml = `
+        <div class="rf-actions">
+          ${repliesHtml}
+          ${bookmarkHtml}
+          ${
+            canEditPost || canDeletePost
+              ? `
+                ${canEditPost ? `<button class="rf-action rf-edit" type="button" onclick="event.stopPropagation(); window.startEditPost('${post.id}')">Edit</button>` : ''}
+                ${canDeletePost ? `<button class="rf-action rf-danger" type="button" data-action="delete"><svg class="rf-trashcan-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2 2h2a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg><span class="rf-delete-text">Delete</span></button>` : ''}
+                `
+              : ""
+          }ate the HTML for each post card, tag chip, and bookmark item, using the provided utility functions and data accessors
 */
 
 (function () {
@@ -168,15 +182,19 @@
         : `<svg class="rf-bookmark-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
       const bookmarkHtml = `<button class="rf-bookmark-btn${bookmarked ? ' bookmarked' : ''}" type="button" data-action="bookmark" aria-label="${bookmarked ? 'Remove bookmark' : 'Bookmark post'}" title="${bookmarked ? 'Remove bookmark' : 'Bookmark'}">${bookmarkSvg}<span class="rf-bookmark-text">${bookmarked ? 'Bookmarked' : 'Bookmark'}</span></button>`;
 
+      const canEditPost = isOwner(post);
+      const canDeletePost = isOwner(post) || userRole === 'admin';
+
       const actionsHtml = `
         <div class="rf-actions">
           ${repliesHtml}
           ${bookmarkHtml}
           ${
-            isOwner(post) || userRole === 'admin'
+            canEditPost || canDeletePost
               ? `
-                <button class="rf-action rf-edit" type="button" onclick="event.stopPropagation(); window.startEditPost('${post.id}')">Edit</button>
-                <button class="rf-action rf-danger" type="button" data-action="delete"><svg class="rf-trashcan-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg><span class="rf-delete-text">Delete</span></button>`
+                ${canEditPost ? `<button class="rf-action rf-edit" type="button" onclick="event.stopPropagation(); window.startEditPost('${post.id}')">Edit</button>` : ''}
+                ${canDeletePost ? `<button class="rf-action rf-danger" type="button" data-action="delete"><svg class="rf-trashcan-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg><span class="rf-delete-text">Delete</span></button>` : ''}
+                `
               : ""
           }
         </div>
