@@ -106,6 +106,7 @@
         ensureRepliesArray(comment);
 
         const canDelete = isCommentOwner(comment) || userRole === 'admin';
+        const canEdit = isCommentOwner(comment); // Only comment owners can edit
         const indentClass = depth > 0 ? "comment comment--reply" : "comment";
         const commentUserVote = getCommentUserVote(comment.id);
         const commentUpActive = commentUserVote === "up" ? "active" : "";
@@ -154,19 +155,19 @@
               ${hasReplies ? `<button class="comment-btn comment-btn--toggle" type="button" data-action="toggle-replies">${escapeHtml(collapseLabel)}</button>` : ""}
               <button class="comment-btn" type="button" data-action="reply">Reply</button>
               ${
-                canDelete
-                  ? '<button class="comment-btn" type="button" data-action="edit-comment">Edit</button><button class="comment-btn comment-btn--danger" type="button" data-action="delete-comment">Delete</button>'
+                canEdit || canDelete
+                  ? `${canEdit ? '<button class="comment-btn" type="button" data-action="edit-comment">Edit</button>' : ''}${canDelete ? '<button class="comment-btn comment-btn--danger" type="button" data-action="delete-comment">Delete</button>' : ''}`
                   : ""
               }
             </div>
 
-            <div class="reply-form comment-edit-form" hidden>
+            ${canEdit ? `<div class="reply-form comment-edit-form" hidden>
               <textarea class="reply-text edit-comment-text" rows="3" placeholder="Edit your comment...">${escapeHtml(comment.body)}</textarea>
               <div class="reply-actions">
                 <button class="comment-btn" type="button" data-action="save-edit">Save</button>
                 <button class="comment-btn" type="button" data-action="cancel-edit">Cancel</button>
               </div>
-            </div>
+            </div>` : ''}
 
             <div class="reply-form" hidden>
               <textarea class="reply-text" rows="2" placeholder="Write a reply..."></textarea>
@@ -283,3 +284,4 @@
     createDetailRenderer,
   };
 })();
+
