@@ -135,6 +135,7 @@
   const sortLabel = document.getElementById("sortLabel");
 
   const searchHistoryEl = document.getElementById("searchHistory");
+  const userSearchDropdownEl = document.getElementById("userSearchResults");
 
   const themeToggle = document.getElementById("themeToggle");
   const themeIcon = document.getElementById("themeIcon");
@@ -350,6 +351,18 @@
     },
   });
   const { getHistory, renderHistory, saveToHistory } = historyManager;
+
+  // Initialize user search manager
+  const userSearchManager = window.AF_USER_SEARCH.createUserSearchManager({
+    userSearchDropdownEl,
+    searchInput,
+    escapeHtml,
+    getAuthorAvatar,
+    showToast,
+    currentUserEmail: email,
+    searchHistoryEl,
+  });
+  userSearchManager.init();
 
   const feedRenderer = window.AF_MAIN_FEED_RENDERER.createFeedRenderer({
     allTagsChips,
