@@ -431,7 +431,13 @@ router.post('/', upload.array('media', 10), async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    const mediaUrls = (req.files || []).map((f) => `/uploads/${f.filename}`);
+    const mediaUrls = (req.files || []).map((file) => {
+      const bitmap = fs.readFileSync(file.path);
+      const base64 = Buffer.from(bitmap).toString('base64');
+      // Clean up the local file immediately after reading it
+      fs.unlinkSync(file.path); 
+      return `data:${file.mimetype};base64,${base64}`;
+    });
 
     const parsedTags = typeof tags === 'string'
       ? tags.split(',').map((t) => t.trim()).filter(Boolean)
@@ -496,7 +502,13 @@ router.put('/:id', upload.array('media', 10), async (req, res) => {
       }
     }
 
-    const uploadedMediaUrls = (req.files || []).map((f) => `/uploads/${f.filename}`);
+    const uploadedMediaUrls = (req.files || []).map((file) => {
+      const bitmap = fs.readFileSync(file.path);
+      const base64 = Buffer.from(bitmap).toString('base64');
+      fs.unlinkSync(file.path); // Delete local copy
+      return `data:${file.mimetype};base64,${base64}`;
+    });
+    
     if ((req.files && req.files.length > 0) || keptMediaUrls !== undefined) {
       post.mediaUrls = [...retainedMediaUrls, ...uploadedMediaUrls];
     }
