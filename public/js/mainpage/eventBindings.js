@@ -459,6 +459,7 @@
           if (action === "report") showReportModal(postId);
           if (action === "bookmark") toggleBookmark(postId);
           if (action === "open-detail") openDetail(postId);
+          if (action === "edit") startEditPost(postId); 
           return;
         }
 
