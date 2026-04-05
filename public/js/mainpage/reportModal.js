@@ -113,10 +113,6 @@
             return;
           }
 
-          const myName = localStorage.getItem("af_user");
-          const adminEmail = "admin@archersforum.com"; 
-          window.AF_MAIN_UTILS.addNotification('report', myName, adminEmail, post.title, postId);
-
           close();
           showToast("Report submitted. Thank you.", "success");
         } catch (err) {

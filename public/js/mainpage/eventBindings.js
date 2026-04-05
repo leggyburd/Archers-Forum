@@ -189,8 +189,6 @@
           const updatedPost = await res.json();
 
           if (res.ok) {
-            const myName = localStorage.getItem("af_user");
-            window.AF_MAIN_UTILS.addNotification('comment', myName, post.authorEmail, post.title, activePostId);
             const posts = getPosts();
             const idx = posts.findIndex((p) => p.id === activePostId);
             if (idx >= 0) {
