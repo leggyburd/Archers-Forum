@@ -1,7 +1,60 @@
 const express = require('express');
 const router  = express.Router();
 const User    = require('../model/User');
+const Post = require('../model/Post');
 const Notification = require('../model/Notification');
+
+async function anonymizeUserComments(userEmail) {
+  const normalizedEmail = String(userEmail || '').toLowerCase();
+  if (!normalizedEmail) return;
+
+  const posts = await Post.find({
+    $or: [
+      { 'comments.authorEmail': normalizedEmail },
+      { 'comments.replies.authorEmail': normalizedEmail },
+    ],
+  });
+
+  for (const post of posts) {
+    let changed = false;
+
+    for (const comment of post.comments || []) {
+      if (String(comment.authorEmail || '').toLowerCase() === normalizedEmail) {
+        comment.body = '*comment deleted by user*';
+        comment.isDeleted = true;
+        comment.editedAt = new Date();
+        changed = true;
+      }
+
+      for (const reply of comment.replies || []) {
+        if (String(reply.authorEmail || '').toLowerCase() === normalizedEmail) {
+            reply.body = '*comment deleted by user*';
+            reply.isDeleted = true;
+            reply.editedAt = new Date();
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      await post.save();
+    }
+  }
+}
+
+function serializePublicUser(user) {
+  return {
+    name: user.name,
+    email: user.email,
+    role: user.role || 'user',
+    avatar: user.avatar,
+    cover: user.cover,
+    followersCount: user.followers ? user.followers.length : 0,
+    followingCount: user.following ? user.following.length : 0,
+    followers: user.followers || [],
+    following: user.following || [],
+  };
+}
 
 // Search users by name or email
 router.get('/search', async (req, res) => {
@@ -23,7 +76,9 @@ router.get('/search', async (req, res) => {
             { email: { $regex: searchTerm, $options: 'i' } }
           ]
         },
-        { email: { $ne: currentUserEmail } }
+
+        { email: { $ne: currentUserEmail } },
+        { isDisabled: { $ne: true } }
       ]
     })
     .select('name email avatar followers')
@@ -56,18 +111,9 @@ router.get('/:email', async (req, res, next) => {
     }
 
     const user = await User.findOne({ email: req.params.email.toLowerCase() });
-    if (!user) return res.status(404).json({ error: 'User not found.' });
-    res.json({ 
-      name: user.name, 
-      email: user.email, 
-      role: user.role || 'user',
-      avatar: user.avatar,
-      cover: user.cover,
-      followersCount: user.followers ? user.followers.length : 0,
-      followingCount: user.following ? user.following.length : 0,
-      followers: user.followers || [],
-      following: user.following || []
-    });
+    if (!user || user.isDisabled) return res.status(404).json({ error: 'User not found.' });
+
+    res.json(serializePublicUser(user));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch user.' });
   }
@@ -354,6 +400,10 @@ router.put('/:id/toggle-status', async (req, res) => {
     user.isDisabled = !user.isDisabled;
     await user.save();
 
+    if (!wasDisabled && user.isDisabled) {
+      await anonymizeUserComments(user.email);
+    }
+
     // Send notification to user when account is disabled
     if (!wasDisabled && user.isDisabled) {
       const admin = await User.findOne({ email: adminEmail });
@@ -399,9 +449,30 @@ router.delete('/:id/delete', async (req, res) => {
       return res.status(403).json({ error: 'Cannot delete your own account.' });
     }
 
+    await anonymizeUserComments(user.email);
+
+    await anonymizeUserComments(user.email);
+
+    await Notification.deleteMany({
+      $or: [
+        { user: user._id },
+        { fromUser: user._id }
+      ]
+    });
+
+    await anonymizeUserComments(user.email);
+
+    await Notification.deleteMany({
+      $or: [
+        { user: user._id },
+        { fromUser: user._id }
+      ]
+    });
+
     await User.findByIdAndDelete(req.params.id);
-    
+
     res.json({ message: 'User deleted successfully.' });
+
   } catch (err) {
     console.error('Failed to delete user:', err);
     res.status(500).json({ error: 'Failed to delete user.' });

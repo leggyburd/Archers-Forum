@@ -175,6 +175,59 @@ async function createPostNotification({ recipientEmail, actorEmail, type, messag
   }
 }
 
+async function createCommentThreadNotifications({ post, actorEmail, actorName, parentCommentId }) {
+  const recipients = new Map();
+  const normalizedActorEmail = String(actorEmail || '').toLowerCase();
+
+  if (!post || !normalizedActorEmail) return;
+
+  if (post.authorEmail && String(post.authorEmail).toLowerCase() !== normalizedActorEmail) {
+    recipients.set(String(post.authorEmail).toLowerCase(), {
+      type: 'comment',
+      message: `${actorName} commented on your post: "${post.title}"`,
+    });
+  }
+
+  if (parentCommentId) {
+    const parentId = String(parentCommentId);
+    let parentEntry = post.comments.id(parentId);
+
+    if (!parentEntry) {
+      for (const comment of post.comments || []) {
+        const matchedReply = (comment.replies || []).find(
+          (reply) => reply._id && reply._id.toString() === parentId,
+        );
+        if (matchedReply) {
+          parentEntry = matchedReply;
+          break;
+        }
+      }
+    }
+
+    if (parentEntry && parentEntry.authorEmail) {
+      const parentAuthorEmail = String(parentEntry.authorEmail).toLowerCase();
+      if (parentAuthorEmail !== normalizedActorEmail) {
+        recipients.set(parentAuthorEmail, {
+          type: 'reply',
+          message: `${actorName} replied to your comment on "${post.title}"`,
+        });
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from(recipients.entries()).map(([recipientEmail, payload]) =>
+      createPostNotification({
+        recipientEmail,
+        actorEmail: normalizedActorEmail,
+        type: payload.type,
+        message: payload.message,
+        postId: post._id,
+      }),
+    ),
+  );
+}
+
 async function createAdminReportNotifications({ reporterEmail, reporterName, post }) {
   try {
     const admins = await User.find({ role: 'admin' }).select('_id email');
@@ -687,12 +740,11 @@ router.post('/:id/comments', async (req, res) => {
 
     await post.save();
 
-    await createPostNotification({
-      recipientEmail: post.authorEmail,
+    await createCommentThreadNotifications({
+      post,
       actorEmail: authorEmail,
-      type: 'comment',
-      message: `${authorName} commented on your post: "${post.title}"`,
-      postId: post._id,
+      actorName: authorName,
+      parentCommentId,
     });
 
     res.status(201).json(serializePost(post));
@@ -701,36 +753,41 @@ router.post('/:id/comments', async (req, res) => {
   }
 });
 
-router.put('/:id/comments/:commentId', async (req, res) => {
+router.delete('/:id/comments/:commentId', async (req, res) => {
   try {
-    const { body, authorEmail } = req.body;
-
-    if (!body || !authorEmail) {
-      return res.status(400).json({ error: 'Missing required fields.' });
-    }
-
+    const requesterEmail = String(req.body.authorEmail || '').toLowerCase();
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Post not found.' });
 
     const cid = req.params.commentId;
-    const normalizedAuthorEmail = String(authorEmail).toLowerCase();
+
+    const markDeleted = (entry) => {
+      entry.body = '*comment deleted by user*';
+      entry.isDeleted = true;
+      entry.editedAt = new Date();
+
+      // Do NOT overwrite authorName or authorEmail here
+      // We still want the original identity preserved unless the account itself is gone
+    };
 
     const topComment = post.comments.id(cid);
     if (topComment) {
-      if (String(topComment.authorEmail).toLowerCase() !== normalizedAuthorEmail) {
-        return res.status(403).json({ error: 'You can only edit your own comment.' });
+      if (requesterEmail && String(topComment.authorEmail || '').toLowerCase() !== requesterEmail) {
+        const requester = await User.findOne({ email: requesterEmail });
+        if (!requester || requester.role !== 'admin') {
+          return res.status(403).json({ error: 'You can only delete your own comment.' });
+        }
       }
 
-      topComment.body = String(body).trim();
-      topComment.editedAt = new Date();
+      markDeleted(topComment);
       await post.save();
       return res.json(serializePost(post));
     }
 
     let targetReply = null;
-    for (const comment of post.comments) {
-      const reply = (comment.replies || []).find(
-        (r) => r._id && r._id.toString() === cid,
+    for (const c of post.comments) {
+      const reply = (c.replies || []).find(
+        (r) => r._id && r._id.toString() === cid
       );
       if (reply) {
         targetReply = reply;
@@ -740,16 +797,18 @@ router.put('/:id/comments/:commentId', async (req, res) => {
 
     if (!targetReply) return res.status(404).json({ error: 'Comment not found.' });
 
-    if (String(targetReply.authorEmail).toLowerCase() !== normalizedAuthorEmail) {
-      return res.status(403).json({ error: 'You can only edit your own comment.' });
+    if (requesterEmail && String(targetReply.authorEmail || '').toLowerCase() !== requesterEmail) {
+      const requester = await User.findOne({ email: requesterEmail });
+      if (!requester || requester.role !== 'admin') {
+        return res.status(403).json({ error: 'You can only delete your own comment.' });
+      }
     }
 
-    targetReply.body = String(body).trim();
-    targetReply.editedAt = new Date();
+    markDeleted(targetReply);
     await post.save();
     res.json(serializePost(post));
   } catch (err) {
-    res.status(500).json({ error: 'Failed to edit comment.' });
+    res.status(500).json({ error: 'Failed to delete comment.' });
   }
 });
 
@@ -786,41 +845,6 @@ router.put('/:id/comments/:commentId/vote', async (req, res) => {
     res.json(serializePost(post));
   } catch (err) {
     res.status(500).json({ error: 'Failed to vote on comment.' });
-  }
-});
-
-router.delete('/:id/comments/:commentId', async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: 'Post not found.' });
-
-    const cid = req.params.commentId;
-
-    const topComment = post.comments.id(cid);
-    if (topComment) {
-      topComment.deleteOne();
-      await post.save();
-      return res.json(serializePost(post));
-    }
-
-    let found = false;
-    for (const c of post.comments) {
-      const replyIdx = (c.replies || []).findIndex(
-        (r) => r._id && r._id.toString() === cid
-      );
-      if (replyIdx !== -1) {
-        c.replies.splice(replyIdx, 1);
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) return res.status(404).json({ error: 'Comment not found.' });
-
-    await post.save();
-    res.json(serializePost(post));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to delete comment.' });
   }
 });
 
