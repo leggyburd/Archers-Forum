@@ -125,6 +125,18 @@
     }
   }
 
+  function renderUserNotFound() {
+    const profileShell = document.querySelector('.profile-page') || document.querySelector('main') || document.body;
+    if (profileShell) {
+      profileShell.innerHTML = `
+        <section class="empty-state" style="max-width:720px;margin:80px auto;text-align:center;padding:40px;">
+          <h2 style="color:#c62828;">User not found</h2>
+          <p>This user may have been deleted or is no longer available.</p>
+        </section>
+      `;
+    }
+  }
+
   function updateProfileTabLabels(threadCount, replyCount) {
     const tabs = document.querySelectorAll(".profile-tabs .profile-tab");
     if (tabs[0]) tabs[0].textContent = `${isOwnProfile ? "My Threads" : "Threads"} (${threadCount})`;
@@ -688,9 +700,12 @@
   setupHeaderReportsButton();
 
   async function loadViewedUser() {
+    let profileExists = true;
+
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(profileEmail)}`);
       const data = await res.json();
+
       if (res.ok) {
         if (data.name) profileName = data.name;
         localStorage.setItem(PROFILE_KEYS.AVATAR, data.avatar || DEFAULTS.AVATAR);
@@ -699,12 +714,15 @@
         if (isOwnProfile && data.name) {
           localStorage.setItem("af_user", data.name);
         }
-        
+
         updateProfileStats(data.followersCount || 0, data.followingCount || 0);
-        
+
         if (!isOwnProfile) {
           checkFollowStatus();
         }
+      } else {
+        profileExists = false;
+        renderUserNotFound();
       }
 
       const meRes = await fetch(`/api/users/${encodeURIComponent(currentUserEmail)}`);
@@ -714,21 +732,29 @@
         localStorage.setItem("af_user_role", meData.role);
       }
     } catch (err) {
+      profileExists = false;
       console.error("Failed to load user profile:", err);
+      renderUserNotFound();
     }
+
+    if (!profileExists) return false;
 
     hydrateProfileHeader();
     setupHeaderReportsButton();
     setupHeaderVisibility();
     setupFollowButton();
+    return true;
   }
 
   async function loadProfileData() {
     try {
-      const [_, postsRes] = await Promise.all([
+      const [profileExists, postsRes] = await Promise.all([
         loadViewedUser(),
         fetch("/api/posts"),
       ]);
+
+      if (!profileExists) return;
+
       const data = await postsRes.json();
       if (postsRes.ok) allPosts = data;
     } catch (err) {
