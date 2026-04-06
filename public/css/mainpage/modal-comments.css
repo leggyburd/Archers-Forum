@@ -356,6 +356,20 @@
   line-height: 1.45;
 }
 
+.comment-body--deleted {
+  font-style: italic;
+  color: #6b7280;
+}
+
+[data-theme="dark"] .comment-body--deleted {
+  color: #9ca3af !important;
+}
+
+.comment-author-link.is-disabled {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
 .comment-replying-to {
   font-size: 0.78rem;
   color: #64748b;
