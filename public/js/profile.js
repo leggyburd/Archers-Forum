@@ -17,7 +17,7 @@
   const currentUserEmail = localStorage.getItem("af_user_email");
   let currentUserRole = localStorage.getItem("af_user_role") || "user";
   const profileParams = new URLSearchParams(window.location.search);
-  const profileEmail = profileParams.get("email") || currentUserEmail;
+  const profileEmail = profileParams.get("user") || profileParams.get("email") || currentUserEmail;
   const isOwnProfile = profileEmail === currentUserEmail;
   let profileName = isOwnProfile ? (currentUserName || "User") : "User";
 
