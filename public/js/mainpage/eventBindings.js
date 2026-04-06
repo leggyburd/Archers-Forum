@@ -407,10 +407,16 @@
             },
             async () => {
               try {
+
                 const res = await fetch(
                   `/api/posts/${activePostId}/comments/${commentId}`,
-                  { method: "DELETE" },
+                  {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ authorEmail: ctx.user.email }),
+                  },
                 );
+                
                 const updatedPost = await res.json();
 
                 if (res.ok) {

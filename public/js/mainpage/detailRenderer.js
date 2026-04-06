@@ -105,8 +105,9 @@
       function renderCommentNode(comment, depth) {
         ensureRepliesArray(comment);
 
-        const canDelete = isCommentOwner(comment) || userRole === 'admin';
-        const canEdit = isCommentOwner(comment); // Only comment owners can edit
+        const isDeletedComment = comment.isDeleted === true;
+        const canDelete = !isDeletedComment && (isCommentOwner(comment) || userRole === 'admin');
+        const canEdit = !isDeletedComment && isCommentOwner(comment);
         const indentClass = depth > 0 ? "comment comment--reply" : "comment";
         const commentUserVote = getCommentUserVote(comment.id);
         const commentUpActive = commentUserVote === "up" ? "active" : "";
@@ -117,6 +118,9 @@
         const replyingToLabel = depth > 0 && comment.replyToName
           ? `<div class="comment-replying-to">Replying to ${escapeHtml(comment.replyToName)}</div>`
           : "";
+        const authorName = comment.authorName || "Unknown User";
+        const commentBody = isDeletedComment ? '*comment deleted by user*' : comment.body;
+        const commentBodyClass = isDeletedComment ? "comment-body comment-body--deleted" : "comment-body";
 
         const childReplies = depth === 0
           ? buildReplyTree(comment.replies || [])
@@ -135,25 +139,31 @@
         return `
           <div class="${indentClass}" data-comment-id="${escapeHtml(comment.id)}">
             <div class="comment-meta">
-              <a class="comment-author-link" href="${getProfileHref(comment.authorEmail)}">
+              <a class="comment-author-link${isDeletedComment ? ' is-disabled' : ''}" href="${getProfileHref(comment.authorEmail)}">
                 <img class="rf-author-avatar" src="${getAuthorAvatar(comment.authorEmail, comment.authorAvatar)}" alt="" />
-                <span class="comment-author">${escapeHtml(comment.authorName)}</span>
+                <span class="comment-author">${escapeHtml(authorName)}</span>
               </a>
               <span>${escapeHtml(formatDate(comment.createdAt))}</span>
               ${editedLabel}
             </div>
 
             ${replyingToLabel}
-            <div class="comment-body">${escapeHtml(comment.body)}</div>
+            <div class="${commentBodyClass}">${escapeHtml(commentBody)}</div>
 
             <div class="comment-actions-row">
-              <div class="comment-vote-group">
-                <button class="comment-btn comment-btn--vote ${commentUpActive}" type="button" data-action="upvote-comment" aria-label="Upvote comment">▲</button>
-                <span class="comment-score">${comment.score || 0}</span>
-                <button class="comment-btn comment-btn--vote ${commentDownActive}" type="button" data-action="downvote-comment" aria-label="Downvote comment">▼</button>
-              </div>
+              ${
+                !isDeletedComment
+                  ? `
+                    <div class="comment-vote-group">
+                      <button class="comment-btn comment-btn--vote ${commentUpActive}" type="button" data-action="upvote-comment" aria-label="Upvote comment">▲</button>
+                      <span class="comment-score">${comment.score || 0}</span>
+                      <button class="comment-btn comment-btn--vote ${commentDownActive}" type="button" data-action="downvote-comment" aria-label="Downvote comment">▼</button>
+                    </div>
+                  `
+                  : ""
+              }
               ${hasReplies ? `<button class="comment-btn comment-btn--toggle" type="button" data-action="toggle-replies">${escapeHtml(collapseLabel)}</button>` : ""}
-              <button class="comment-btn" type="button" data-action="reply">Reply</button>
+              ${!isDeletedComment ? '<button class="comment-btn" type="button" data-action="reply">Reply</button>' : ''}
               ${
                 canEdit || canDelete
                   ? `${canEdit ? '<button class="comment-btn" type="button" data-action="edit-comment">Edit</button>' : ''}${canDelete ? '<button class="comment-btn comment-btn--danger" type="button" data-action="delete-comment">Delete</button>' : ''}`
@@ -162,7 +172,7 @@
             </div>
 
             ${canEdit ? `<div class="reply-form comment-edit-form" hidden>
-              <textarea class="reply-text edit-comment-text" rows="3" placeholder="Edit your comment...">${escapeHtml(comment.body)}</textarea>
+              <textarea class="reply-text edit-comment-text" rows="3" placeholder="Edit your comment...">${escapeHtml(commentBody)}</textarea>
               <div class="reply-actions">
                 <button class="comment-btn" type="button" data-action="save-edit">Save</button>
                 <button class="comment-btn" type="button" data-action="cancel-edit">Cancel</button>
